@@ -1,8 +1,9 @@
-from games.game.move import Move
 from numpy import array
 
 
 class GameState:
+    Move = object
+
     def __init__(self):
         self.player = None
         self.player_count = None
