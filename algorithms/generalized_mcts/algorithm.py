@@ -2,6 +2,7 @@ from algorithms.algorithm import algorithm
 from copy import deepcopy
 from enum import Enum
 from games.game.game_state import GameState
+from games.game.move import Move
 from itertools import groupby
 from numpy.random import choice
 from recordclass import recordclass
@@ -14,7 +15,7 @@ class Algorithm(algorithm.Algorithm):
         UP = 0
         DOWN = 1
 
-    Worker = recordclass('Worker', 'node direction game_state')
+    Worker = recordclass('Worker', 'node direction game_state payoff')
     Node = recordclass('Node', 'number_of_visits move statistic parent children')
     Statistic = object
 
@@ -25,7 +26,8 @@ class Algorithm(algorithm.Algorithm):
             Algorithm.Worker(
                 node=0,
                 direction=Algorithm.Direction.DOWN,
-                game_state=deepcopy(game_state))
+                game_state=deepcopy(game_state),
+                payoff=None)
             for _ in range(number_of_workers)]
         self.tree = [
             Algorithm.Node(
@@ -36,25 +38,16 @@ class Algorithm(algorithm.Algorithm):
                 children=None)]
         self.grow_factor = grow_factor
 
-    # O(tree_size)
     def _empty_statistic(self, game_state: [GameState]) -> [Statistic]:
         raise NotImplementedError
 
-    # O(number_of_workers * tree_height * tree_ramification * number_of_iterations)
-    # TODO: remove tree_ramification factor (add cache)
-    def _move_rate(self, parent_statistic: [Statistic], child_statistic: [Statistic]) -> [np.matrix]:
+    def _move_rate(self, parent_statistic: [Statistic], child_statistic: [Statistic]) -> [np.array]:
         raise NotImplementedError
 
-    # O(number_of_iterations * number_of_workers)
-    def _updated_leaf_statistic(self, statistic: [Statistic], payoffs: [[np.matrix]]) -> [Statistic]:
+    def _updated_statistic(self, statistic: [Statistic], payoffs: [[np.array]]) -> [Statistic]:
         raise NotImplementedError
 
-    # O(number_of_workers * tree_height * number_of_iterations)
-    def _updated_node_statistic(self, parent_statistic: [Statistic], children_statistics: [[Statistic]]) -> [Statistic]:
-        raise NotImplementedError
-
-    # O(number_of_workers * number_of_iterations)
-    def _random_playout_payoff(self, game_state: GameState) -> np.matrix:
+    def _random_playout_payoff(self, game_state: GameState) -> np.array:
         raise NotImplementedError
 
     def __down_children_case(self, workers, move_rates):
@@ -86,45 +79,39 @@ class Algorithm(algorithm.Algorithm):
                 parent=workers[0].node,
                 children=None)]
 
-    def __down_payoff_case(self, workers, statistic):
+    def __down_payoff_case(self, workers, payoffs):
+        for worker, payoff in zip(workers, payoffs):
+            worker.direction = Algorithm.Direction.UP
+            worker.payoff = payoff
+
+    def __up_case(self, workers, statistic):
         node = self.tree[workers[0].node]
 
         node.statistic = statistic
+        node.number_of_visits += len(workers)
 
-        for worker in workers:
-            worker.direction = Algorithm.Direction.UP
-
-    def __up_non_root_case(self, workers, statistic):
-        pidx = self.tree[workers[0].node].parent
-
-        self.tree[pidx].statistic = statistic
-
-        for worker in workers:
-            self.tree[worker.node].number_of_visits += 1
-            worker.game_state.undo_move(self.tree[worker.node].move)
-            worker.node = pidx
-
-    def __up_root_case(self, workers):
-        self.tree[0].number_of_visits += len(workers)
-
-        for worker in workers:
-            worker.direction = Algorithm.Direction.DOWN
+        if node.parent:
+            for worker in workers:
+                worker.game_state.undo_move(node.move)
+                worker.node = node.parent
+        else:
+            for worker in workers:
+                worker.payoff = None
+                worker.direction = Algorithm.Direction.DOWN
 
     def improve(self):
-        empty_statistics_0 = []
+        empty_statistic_0 = []
         move_rate_0 = []
         move_rate_1 = []
-        updated_leaf_statistics_0 = []
-        updated_leaf_statistics_1 = []
-        updated_node_statistics_0 = []
-        updated_node_statistics_1 = []
+        updated_statistic_0 = []
+        updated_statistic_1 = []
 
         up_workers = groupby(sorted(filter(
             lambda x: x.direction == Algorithm.Direction.UP, self.workers),
             key=lambda x: x.node), key=lambda x: x.node)
         down_workers = groupby(sorted(filter(
             lambda x: x.direction == Algorithm.Direction.DOWN, self.workers),
-            key=lambda x: x.parent), key=lambda x: x.parent)
+            key=lambda x: x.node), key=lambda x: x.node)
 
         # DOWN
         for idx, workers in down_workers:
@@ -137,26 +124,20 @@ class Algorithm(algorithm.Algorithm):
             else:
                 if node.number_of_visits >= self.grow_factor:
                     for move in workers[0].game_state.moves():
-                        empty_statistics_0 += [deepcopy(workers[0].game_state).apply_move(move)]
+                        empty_statistic_0 += [deepcopy(workers[0].game_state).apply_move(move)]
                 else:
-                    updated_leaf_statistics_0 += [node.statistics]
-                    updated_leaf_statistics_1 += [[self._random_playout_payoff(worker.game_state)
-                                                   for worker in workers]]
+                    pass
 
         # UP
-        for pidx, workers in up_workers:
-            if pidx:
-                parent_node = self.tree[pidx]
+        for idx, workers in up_workers:
+            node = self.tree[idx]
 
-                updated_node_statistics_0 += [parent_node.statistics]
-                updated_node_statistics_1 += [[self.tree[idx].statistic for idx, _ in groupby(workers, key=lambda x: x.node)]]
-            else:
-                pass
+            updated_statistic_0 += [node.statistic]
+            updated_statistic_1 += [worker.payoff for worker in workers]
 
-        empty_statistics = self._empty_statistic(empty_statistics_0)
+        empty_statistics = self._empty_statistic(empty_statistic_0)
         move_rate = self._move_rate(move_rate_0, move_rate_1)
-        updated_leaf_statistics = self._updated_leaf_statistic(updated_leaf_statistics_0, updated_leaf_statistics_1)
-        updated_node_statistics = self._updated_node_statistic(updated_node_statistics_0, updated_node_statistics_1)
+        updated_statistic = self._updated_statistic(updated_statistic_0, updated_statistic_1)
 
         # DOWN
         for idx, workers in down_workers:
@@ -170,15 +151,23 @@ class Algorithm(algorithm.Algorithm):
                 if node.number_of_visits >= self.grow_factor:
                     move_count = len(workers[0].game_state.moves())
                     result, empty_statistics = empty_statistics[move_count]
-                    self.__down_payoff_case(workers, result)
+                    self.__down_expand_case(workers, result)
                 else:
-                    result, updated_leaf_statistics = updated_leaf_statistics[0], updated_leaf_statistics[1:]
-                    self.__down_payoff_case(workers, result)
+                    self.__down_payoff_case(
+                        workers, [[self._random_playout_payoff(worker.game_state) for worker in workers]])
 
         # UP
-        for pidx, workers in up_workers:
-            if pidx:
-                result, updated_node_statistics = updated_node_statistics[0], updated_node_statistics[1:]
-                self.__up_non_root_case(workers, result)
-            else:
-                self.__up_root_case(workers)
+        for idx, workers in up_workers:
+            result, updated_statistic = updated_statistic[0], updated_statistic[1:]
+            self.__up_case(workers, result)
+
+    def move_rates(self) -> [(Move, np.array)]:
+        root = self.tree[0]
+
+        assert root.children
+
+        result = []
+        for idx in range(self.tree[0].children[0], self.tree[0].children[1]):
+            node = self.tree[idx]
+            result += [(node.move, self._move_rate([root.statistic], [node.statistic])[0])]
+        return result

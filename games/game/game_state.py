@@ -5,6 +5,7 @@ from numpy import array
 class GameState:
     def __init__(self):
         self.player = None
+        self.player_count = None
 
     def moves(self) -> [Move]:
         raise NotImplementedError
