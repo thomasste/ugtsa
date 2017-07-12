@@ -1,4 +1,4 @@
-from numpy import array
+import numpy as np
 
 
 class GameState:
@@ -20,5 +20,5 @@ class GameState:
     def is_final(self) -> bool:
         raise NotImplementedError
 
-    def payoff(self) -> array:
+    def payoff(self) -> np.array:
         raise NotImplementedError

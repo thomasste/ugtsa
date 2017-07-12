@@ -199,8 +199,6 @@ class Algorithm(algorithm.Algorithm):
 
         # UP
         for idx, workers in up_workers:
-            node = self.tree[idx]
-
             result1, updated_statistic = updated_statistic[0], updated_statistic[1:]
             result2, updated_update = updated_update[:len(workers)], updated_update[len(workers):]
 
