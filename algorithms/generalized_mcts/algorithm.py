@@ -88,7 +88,6 @@ class Algorithm(algorithm.Algorithm):
             xs = [1 / (node.children[1] - node.children[0])] * (node.children[1] - node.children[0])
 
         cidxs = choice(range(node.children[0], node.children[1]), len(workers), p=xs)
-        # print(node.children[0], node.children[1], xs, cidxs)
 
         for cidx, worker in zip(cidxs, workers):
             worker.node = cidx
@@ -133,9 +132,6 @@ class Algorithm(algorithm.Algorithm):
                 worker.direction = Algorithm.Direction.DOWN
 
     def improve(self):
-        # print(self.workers[0])
-        # print("RESET")
-
         empty_statistic_0 = []
         move_rate_0 = []
         move_rate_1 = []
@@ -148,13 +144,11 @@ class Algorithm(algorithm.Algorithm):
         up_workers = groupby(sorted(filter(
             lambda x: x.direction == Algorithm.Direction.UP, self.workers),
             key=lambda x: x.node), key=lambda x: x.node)
-        # cause python is retarded
         up_workers = [(idx, list(workers)) for idx, workers in up_workers]
 
         down_workers = groupby(sorted(filter(
             lambda x: x.direction == Algorithm.Direction.DOWN, self.workers),
             key=lambda x: x.node), key=lambda x: x.node)
-        # cause python is retarded
         down_workers = [(idx, list(workers)) for idx, workers in down_workers]
 
         # DOWN
@@ -169,11 +163,7 @@ class Algorithm(algorithm.Algorithm):
             else:
                 if node.number_of_visits >= self.grow_factor and not workers[0].game_state.is_final():
                     for move in workers[0].game_state.moves():
-                        # print(workers[0].game_state.moves())
-                        # print(move)
-                        # print(workers[0].game_state)
                         gs = deepcopy(workers[0].game_state)
-                        # print(gs)
                         gs.apply_move(move)
                         empty_statistic_0 += [gs]
                 else:
@@ -234,13 +224,8 @@ class Algorithm(algorithm.Algorithm):
 
             self.__up_case(workers, result1, result2)
 
-        # print(self.tree)
-
     def move_rates(self) -> [(GameState.Move, np.array)]:
-        # print(self.tree)
-
         root = self.tree[0]
-
         assert root.children
 
         result = []
