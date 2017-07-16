@@ -14,6 +14,10 @@ class GameState(game_state.GameState):
     Move = recordclass('Move', 'state player value idx')
 
     def __init__(self, board_size, group_penalty=-5, min_bet=0, max_bet=9):
+        super().__init__()
+        self.player = 0
+        self.player_count = 2
+
         self.state = GameState.State.bet
         self.bets = [None, None]
         self.chosen_player = None
@@ -26,6 +30,8 @@ class GameState(game_state.GameState):
         self.max_bet = max_bet
 
     def moves(self) -> [Move]:
+        assert not self.is_final()
+
         if self.state == GameState.State.bet:
             return [GameState.Move(self.state, self.player, value, None)
                     for value in range(self.min_bet, self.max_bet)]
@@ -37,6 +43,7 @@ class GameState(game_state.GameState):
                     for idx, value in enumerate(self.empty_positions)]
 
     def apply_move(self, move: Move) -> None:
+        assert not self.is_final()
         assert move.state == self.state
         assert move.player == self.player
 
@@ -46,7 +53,7 @@ class GameState(game_state.GameState):
                 self.state = GameState.State.bet
                 self.player = self.player ^ 1
             elif self.bets[0] == self.bets[1]:
-                self.player = GameState.State.nature
+                self.state = GameState.State.nature
                 self.player = -1
             else:
                 self.state = GameState.State.place
@@ -83,8 +90,6 @@ class GameState(game_state.GameState):
         result = 0
 
         visited = np.zeros((self.board_size, self.board_size), dtype=np.int)
-        for p in self.empty_positions:
-            visited[p[0]][p[1]] = 1
 
         for y in range(self.board_size):
             for x in range(self.board_size):
@@ -93,13 +98,15 @@ class GameState(game_state.GameState):
                     result += 1
 
                     stack = [(y, x)]
-                    while stack is not []:
+                    while stack:
                         p, stack = stack[-1], stack[:-1]
-                        for dy in [-1, 0, 0, 1]:
-                            for dx in [0, -1, 1, 0]:
-                                if visited[y + dy][x + dx] == 0 and self.board[y + dy][x + dx] == player:
-                                    visited[y + dy][x + dx] = 1
-                                    stack += [(y + dy, x + dx)]
+                        for dy, dx in zip([-1, 0, 0, 1], [0, -1, 1, 0]):
+                            ny = p[0] + dy
+                            nx = p[1] + dx
+                            if 0 <= nx < self.board_size and 0 <= ny < self.board_size and \
+                                    visited[ny][nx] == 0 and self.board[ny][nx] == player:
+                                visited[ny][nx] = 1
+                                stack += [(ny, nx)]
 
         return result
 
@@ -109,16 +116,15 @@ class GameState(game_state.GameState):
              for player in range(2)],
             dtype=np.float32)
 
-        if self.bets[0] < self.bets[1]:
-            order = [1, 0]
-        elif self.bets[0] > self.bets[1]:
-            order = [0, 1]
-        else:
-            order = [self.chosen_player, self.chosen_player ^ 1]
+        result[0][0] += (self.board == 1).sum()
+        result[1][0] += (self.board == 2).sum()
 
-        result[order[0]][0] += np.ceil(self.board_size * self.board_size / 2)
-        result[order[1]][0] += np.floor(self.board_size * self.board_size / 2)
-        result[order[1]][0] += self.bets[order[1]] + 0.5
+        if self.bets[0] < self.bets[1]:
+            result[0][0] += self.bets[0] + 0.5
+        elif self.bets[0] > self.bets[1]:
+            result[1][0] += self.bets[1] + 0.5
+        else:
+            result[self.chosen_player ^ 1][0] += self.bets[self.chosen_player ^ 1] + 0.5
 
         return result
 
@@ -129,3 +135,13 @@ class GameState(game_state.GameState):
         game_state.chosen_player = self.chosen_player
         game_state.board = np.array(self.board, copy=True)
         game_state.empty_positions = list(self.empty_positions)
+        return game_state
+
+    def __str__(self):
+        lines = []
+        lines.append('player {}'.format(self.player))
+        lines.append('chosen_player {}'.format(self.chosen_player))
+        lines.append('state {}'.format(self.state))
+        lines.append('bets {} {}'.format(self.bets[0], self.bets[1]))
+        lines.append(str(self.board))
+        return '\n'.join(lines)

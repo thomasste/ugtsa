@@ -10,7 +10,7 @@ class Algorithm(algorithm.Algorithm):
     Update = np.array
 
     def __init__(self, game_state: GameState, number_of_workers: int, grow_factor: int, exploration_factor: int):
-        super(Algorithm, self).__init__(game_state, number_of_workers, grow_factor)
+        super().__init__(game_state, number_of_workers, grow_factor)
         self.exploration_factor = exploration_factor
 
     def _empty_statistic(self, game_state: [GameState]) -> [Statistic]:
@@ -27,7 +27,7 @@ class Algorithm(algorithm.Algorithm):
     def _updated_statistic(self, statistic: [Statistic], updates: [[Update]]) -> [Statistic]:
         result = []
 
-        for s, ps in statistic, updates:
+        for s, ps in zip(statistic, updates):
             ns = Algorithm.Statistic(w=np.array(s.w, copy=True), n=s.n + len(ps))
             for w in np.argmax(ps, 1):
                 ns.w[w] += 1
