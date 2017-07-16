@@ -77,17 +77,18 @@ class Algorithm(algorithm.Algorithm):
 
         if workers[0].game_state.player != -1:
             move_rates = [self.tree[cidx].move_rate_cache for cidx in range(node.children[0], node.children[1])]
-        else:
-            move_rates = [1 / (node.children[1] - node.children[0])] * (node.children[1] - node.children[0])
 
-        # make probabilities
-        xs = [x[workers[0].game_state.player] for x in move_rates]
-        m = min(xs)
-        xs = [x - m for x in xs]
-        s = sum(xs)
-        xs = [x / s for x in xs]
+            # make probabilities
+            xs = [x[workers[0].game_state.player] for x in move_rates]
+            m = min(xs)
+            xs = [x - m for x in xs]
+            s = sum(xs)
+            xs = [x / s for x in xs]
+        else:
+            xs = [1 / (node.children[1] - node.children[0])] * (node.children[1] - node.children[0])
 
         cidxs = choice(range(node.children[0], node.children[1]), len(workers), p=xs)
+        # print(node.children[0], node.children[1], xs, cidxs)
 
         for cidx, worker in zip(cidxs, workers):
             worker.node = cidx
@@ -122,7 +123,7 @@ class Algorithm(algorithm.Algorithm):
         for worker, update in zip(workers, updates):
             worker.update = update
 
-        if node.parent:
+        if node.parent is not None:
             for worker in workers:
                 worker.game_state.undo_move(node.move)
                 worker.node = node.parent
@@ -132,7 +133,8 @@ class Algorithm(algorithm.Algorithm):
                 worker.direction = Algorithm.Direction.DOWN
 
     def improve(self):
-        print("RESET")
+        # print(self.workers[0])
+        # print("RESET")
 
         empty_statistic_0 = []
         move_rate_0 = []
@@ -159,15 +161,19 @@ class Algorithm(algorithm.Algorithm):
         for idx, workers in down_workers:
             node = self.tree[idx]
 
-            if node.children:
+            if node.children is not None:
                 for cidx in range(node.children[0], node.children[1]):
-                    if not self.tree[cidx].move_rate_cache:
+                    if self.tree[cidx].move_rate_cache is None:
                         move_rate_0 += [node.statistic]
                         move_rate_1 += [self.tree[cidx].statistic]
             else:
-                if node.number_of_visits >= self.grow_factor:
+                if node.number_of_visits >= self.grow_factor and not workers[0].game_state.is_final():
                     for move in workers[0].game_state.moves():
+                        # print(workers[0].game_state.moves())
+                        # print(move)
+                        # print(workers[0].game_state)
                         gs = deepcopy(workers[0].game_state)
+                        # print(gs)
                         gs.apply_move(move)
                         empty_statistic_0 += [gs]
                 else:
@@ -183,11 +189,11 @@ class Algorithm(algorithm.Algorithm):
             updated_update_0 += [worker.update for worker in workers]
             updated_update_1 += [node.statistic for _ in workers]
 
-        print(empty_statistic_0)
-        print(move_rate_0, move_rate_1)
-        print(game_state_as_update_0)
-        print(updated_statistic_0, updated_statistic_1)
-        print(updated_update_0, updated_update_1)
+        # print(empty_statistic_0)
+        # print(move_rate_0, move_rate_1)
+        # print(game_state_as_update_0)
+        # print(updated_statistic_0, updated_statistic_1)
+        # print(updated_update_0, updated_update_1)
 
         empty_statistic = self._empty_statistic(empty_statistic_0)
         move_rate = self._move_rate(move_rate_0, move_rate_1)
@@ -195,25 +201,25 @@ class Algorithm(algorithm.Algorithm):
         updated_statistic = self._updated_statistic(updated_statistic_0, updated_statistic_1)
         updated_update = self._updated_update(updated_update_0, updated_update_1)
 
-        print(empty_statistic)
-        print(move_rate)
-        print(game_state_as_update)
-        print(updated_statistic)
-        print(updated_update)
+        # print(empty_statistic)
+        # print(move_rate)
+        # print(game_state_as_update)
+        # print(updated_statistic)
+        # print(updated_update)
 
         # DOWN
         for idx, workers in down_workers:
             node = self.tree[idx]
 
-            if node.children:
+            if node.children is not None:
                 # fill gaps
                 for cidx in range(node.children[0], node.children[1]):
-                    if not self.tree[cidx].move_rate_cache:
+                    if self.tree[cidx].move_rate_cache is None:
                         self.tree[cidx].move_rate_cache, move_rate = move_rate[0], move_rate[1:]
 
                 self.__down_move_case(workers)
             else:
-                if node.number_of_visits >= self.grow_factor:
+                if node.number_of_visits >= self.grow_factor and not workers[0].game_state.is_final():
                     move_count = len(workers[0].game_state.moves())
                     result, empty_statistic = empty_statistic[:move_count], empty_statistic[move_count:]
                     self.__down_expand_case(workers, result)
@@ -228,10 +234,10 @@ class Algorithm(algorithm.Algorithm):
 
             self.__up_case(workers, result1, result2)
 
-        print(self.tree)
+        # print(self.tree)
 
     def move_rates(self) -> [(GameState.Move, np.array)]:
-        print(self.tree)
+        # print(self.tree)
 
         root = self.tree[0]
 

@@ -130,6 +130,8 @@ class GameState(game_state.GameState):
 
     def __deepcopy__(self, memodict={}):
         game_state = GameState(self.board_size, self.group_penalty, self.min_bet, self.max_bet)
+        game_state.player = self.player
+        game_state.player_count = self.player_count
         game_state.state = self.state
         game_state.bets = list(self.bets)
         game_state.chosen_player = self.chosen_player
