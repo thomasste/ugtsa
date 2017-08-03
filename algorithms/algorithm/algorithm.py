@@ -8,7 +8,7 @@ class Algorithm(object):
     def __init__(self, game_state: GameState):
         self.game_state = game_state
 
-    def move_rates(self) -> [(GameState.Move, np.array)]:
+    def move_rates(self) -> [(GameState.Move, np.ndarray)]:
         raise NotImplementedError
 
     def best_move(self) -> GameState.Move:
