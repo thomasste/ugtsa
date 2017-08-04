@@ -7,7 +7,6 @@ from numpy.random import choice
 from recordclass import recordclass
 
 import numpy as np
-import random
 
 
 class Algorithm(algorithm.Algorithm):
@@ -24,7 +23,6 @@ class Algorithm(algorithm.Algorithm):
     Statistic = object
     Update = object
     Rate = object
-    Payoff = np.ndarray
 
     def __init__(self, game_state: GameState, number_of_workers: int,
                  grow_factor: int):
@@ -46,6 +44,7 @@ class Algorithm(algorithm.Algorithm):
                 children=None,
                 move_rate_cache=None)]
         self.grow_factor = grow_factor
+        self._run_batch()
 
     def _empty_statistic(self, game_state: [GameState]) -> [Statistic]:
         raise NotImplementedError
@@ -68,22 +67,6 @@ class Algorithm(algorithm.Algorithm):
 
     def _run_batch(self) -> None:
         raise NotImplementedError
-
-    def _random_playout_payoff(self, game_state: GameState) -> [Payoff]:
-        stack = []
-
-        while not game_state.is_final():
-            move = random.choice(game_state.moves())
-            game_state.apply_move(move)
-            stack.append(move)
-
-        payoff = game_state.payoff()
-
-        while stack:
-            move = stack.pop()
-            game_state.undo_move(move)
-
-        return payoff
 
     def __down_move_case(self, workers):
         node = self.tree[workers[0].node]

@@ -13,21 +13,19 @@ class Algorithm(algorithm.Algorithm):
 
     def __init__(self, game_state: GameState, number_of_workers: int,
                  grow_factor: int, prefix: str, session: tf.Session,
-                 empty_statistic_trainable_model,
-                 move_rate_trainable_model,
-                 game_state_as_update_trainable_model,
-                 updated_statistic_trainable_model,
-                 updated_update_trainable_model):
-        super().__init__(game_state, number_of_workers, grow_factor)
-
+                 empty_statistic_model,
+                 move_rate_model,
+                 game_state_as_update_model,
+                 updated_statistic_model,
+                 updated_update_model):
         self.prefix = prefix
         self.session = session
 
         self.computation_graph = ComputationGraph(self.session)
 
         # empty statistic
-        self.empty_statistic_trainable_model = \
-            self.computation_graph.matrix(empty_statistic_trainable_model)
+        self.empty_statistic_model = \
+            self.computation_graph.matrix(empty_statistic_model)
         self.empty_statistic_transformation = \
             self.__transformation(
                 name='empty_statistic',
@@ -35,11 +33,11 @@ class Algorithm(algorithm.Algorithm):
                     'game_state_board',
                     'game_state_statistic',
                 ],
-                trainable_model_matrix=self.empty_statistic_trainable_model)
+                model_matrix=self.empty_statistic_model)
 
         # move rate
-        self.move_rate_trainable_model = \
-            self.computation_graph.matrix(move_rate_trainable_model)
+        self.move_rate_model = \
+            self.computation_graph.matrix(move_rate_model)
         self.move_rate_transformation = \
             self.__transformation(
                 name='move_rate',
@@ -47,38 +45,35 @@ class Algorithm(algorithm.Algorithm):
                     'parent_statistic',
                     'child_statistic',
                 ],
-                trainable_model_matrix=self.move_rate_trainable_model)
+                model_matrix=self.move_rate_model)
 
         # game state as update
-        self.game_state_as_update_trainable_model = \
-            self.computation_graph.matrix(
-                game_state_as_update_trainable_model)
+        self.game_state_as_update_model = \
+            self.computation_graph.matrix(game_state_as_update_model)
         self.game_state_as_update_transformation = \
             self.__transformation(
                 name='game_state_as_update',
                 inputs=[
-                    'game_state_statistic',
+                    'update_statistic',
                 ],
-                trainable_model_matrix=self.game_state_as_update_trainable_model)
+                model_matrix=self.game_state_as_update_model)
 
         # updated statistic
-        self.updated_statistic_trainable_model = \
-            self.computation_graph.matrix(
-                updated_statistic_trainable_model)
+        self.updated_statistic_model = \
+            self.computation_graph.matrix(updated_statistic_model)
         self.updated_statistic_transformation = \
             self.__transformation(
                 name='updated_statistic',
                 inputs=[
                     'statistic',
-                    'updates_count', # TODO: is it ok?
+                    'update_count', # TODO: is it ok?
                     'updates', # TODO: one input is a list of inputs or a single input
                 ],
-                trainable_model_matrix=self.updated_statistic_trainable_model)
+                model_matrix=self.updated_statistic_model)
 
         # updated update
-        self.updated_update_trainable_model = \
-            self.computation_graph.matrix(
-                updated_update_trainable_model)
+        self.updated_update_model = \
+            self.computation_graph.matrix(updated_update_model)
         self.updated_update_transformation = \
             self.__transformation(
                 name='updated_update',
@@ -86,28 +81,32 @@ class Algorithm(algorithm.Algorithm):
                     'update',
                     'statistic',
                 ],
-                trainable_model_matrix=self.updated_update_trainable_model)
+                model_matrix=self.updated_update_model)
 
-    def __transformation(self, name: str, inputs: [tf.Tensor], trainable_model_matrix: int) -> int:
+        super().__init__(game_state, number_of_workers, grow_factor)
+
+    def __transformation(self, name: str, inputs: [tf.Tensor], model_matrix: int) -> int:
         return self.computation_graph.transformation(
-            trainable_model=tf.get_collection(
-                '{}/{}/trainable_model'.format(self.prefix, name))[0],
-            trainable_model_gradient=tf.get_collection(
-                '{}/{}/trainable_model_gradient'.format(
+            model=tf.get_collection(
+                '{}/{}/model'.format(self.prefix, name))[0],
+            model_gradient=tf.get_collection(
+                '{}/{}/model_gradient'.format(
                     self.prefix, name))[0],
-            inputs=[tf.get_collection('{}/{}/{}').format(
-                self.prefix, name, input)[0] for input in inputs],
-            input_gradients=[tf.get_collection('{}/{}/{}').format(
-                self.prefix, name, input)[0] for input in inputs],
+            inputs=[tf.get_collection('{}/{}/{}'.format(
+                self.prefix, name, input))[0] for input in inputs],
+            input_gradients=[tf.get_collection('{}/{}/{}'.format(
+                self.prefix, name, input))[0] for input in inputs],
             output=tf.get_collection(
                 '{}/{}/output'.format(self.prefix, name)),
             output_gradient=tf.get_collection(
                 '{}/{}/output_gradient'.format(self.prefix, name)),
-            trainable_model_matrix=trainable_model_matrix)
+            model_matrix=model_matrix)
 
-    # TODO: make abstract
     def _game_state_statistic(self, game_state: GameState):
-        return self._random_playout_payoff(game_state)
+        return game_state.random_playout_payoff()
+
+    def _update_statistic(self, game_state: GameState):
+        return game_state.random_playout_payoff()
 
     def _empty_statistic(self, game_state: [GameState]) -> [Statistic]:
         game_state_board = [
@@ -132,15 +131,15 @@ class Algorithm(algorithm.Algorithm):
             for ps, cs in zip(parent_statistic, child_statistic)]
 
     def _game_state_as_update(self, game_state: [GameState]) -> [Update]:
-        game_state_statistic = [
-            self.computation_graph.matrix(self._game_state_statistic(gs))
+        update_statistic = [
+            self.computation_graph.matrix(self._update_statistic(gs))
             for gs in game_state]
 
         return [
             self.computation_graph.node(
                 transformation=self.game_state_as_update_transformation,
-                inputs=[gss])
-            for gss in game_state_statistic]
+                inputs=[us])
+            for us in update_statistic]
 
     def _updated_statistic(self, statistic: [Statistic], updates: [[Update]]) \
             -> [Statistic]:

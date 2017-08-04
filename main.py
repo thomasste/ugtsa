@@ -46,9 +46,11 @@ def human_vs_ai_playout(game_state, human=0):
             # index = 0
             game_state.apply_move(game_state.moves()[index])
         else:
-            algorithm = Algorithm(game_state, 1, 5, np.sqrt(2))
-            for i in range(10000):
+            algorithm = Algorithm(game_state, 10, 5, np.sqrt(2))
+            for i in range(400):
                 algorithm.improve()
+                print(algorithm.workers)
+                print("cokolwiek")
             # for i, node in enumerate(algorithm.tree):
             #     print('{}: {}'.format(i, node))
             # index = int(input("Move: "))

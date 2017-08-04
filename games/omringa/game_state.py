@@ -112,19 +112,19 @@ class GameState(game_state.GameState):
 
     def payoff(self) -> np.array:
         result = np.array(
-            [[self.count_groups(player) * self.group_penalty]
+            [self.count_groups(player) * self.group_penalty
              for player in range(2)],
             dtype=np.float32)
 
-        result[0][0] += (self.board == 1).sum()
-        result[1][0] += (self.board == 2).sum()
+        result[0] += (self.board == 1).sum()
+        result[1] += (self.board == 2).sum()
 
         if self.bets[0] < self.bets[1]:
-            result[0][0] += self.bets[0] + 0.5
+            result[0] += self.bets[0] + 0.5
         elif self.bets[0] > self.bets[1]:
-            result[1][0] += self.bets[1] + 0.5
+            result[1] += self.bets[1] + 0.5
         else:
-            result[self.chosen_player ^ 1][0] += self.bets[self.chosen_player ^ 1] + 0.5
+            result[self.chosen_player ^ 1] += self.bets[self.chosen_player ^ 1] + 0.5
 
         return result
 

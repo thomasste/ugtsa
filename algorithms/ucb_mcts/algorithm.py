@@ -23,7 +23,7 @@ class Algorithm(algorithm.Algorithm):
                 for (ps, cs) in zip(parent_statistic, child_statistic)]
 
     def _game_state_as_update(self, game_state: [GameState]) -> [Update]:
-        return [self._random_playout_payoff(gs) for gs in game_state]
+        return [gs.random_playout_payoff() for gs in game_state]
 
     def _updated_statistic(self, statistic: [Statistic], updates: [[Update]]) -> [Statistic]:
         result = []
