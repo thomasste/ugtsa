@@ -22,3 +22,6 @@ class GameState:
 
     def payoff(self) -> np.array:
         raise NotImplementedError
+
+    def as_matrix(self) -> np.array:
+        raise NotImplementedError

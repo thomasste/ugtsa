@@ -20,8 +20,10 @@ class Algorithm(algorithm.Algorithm):
     Node = recordclass(
         'Node', 'number_of_visits move statistic parent children '
                 'move_rate_cache')
+
     Statistic = object
     Update = object
+    Rate = object
     Payoff = np.ndarray
 
     def __init__(self, game_state: GameState, number_of_workers: int,
@@ -49,19 +51,25 @@ class Algorithm(algorithm.Algorithm):
         raise NotImplementedError
 
     def _move_rate(
-            self, parent_statistic: [Statistic], child_statistic: [Statistic])\
-            -> [np.ndarray]:
+            self, parent_statistic: [Statistic], child_statistic: [Statistic]) \
+            -> [Rate]:
         raise NotImplementedError
 
     def _game_state_as_update(self, game_state: [GameState]) -> [Update]:
         raise NotImplementedError
 
-    def _updated_statistic(self, statistic: [Statistic], updates: [[Update]])\
+    def _updated_statistic(self, statistic: [Statistic], updates: [[Update]]) \
             -> [Statistic]:
         raise NotImplementedError
 
-    def _updated_update(self, update: [Update], statistic: [Statistic])\
+    def _updated_update(self, update: [Update], statistic: [Statistic]) \
             -> [Update]:
+        raise NotImplementedError
+
+    def _run_batch(self) -> None:
+        raise NotImplementedError
+
+    def _value(self, rate: Rate) -> np.ndarray:
         raise NotImplementedError
 
     def _random_playout_payoff(self, game_state: GameState) -> [Payoff]:
@@ -85,7 +93,7 @@ class Algorithm(algorithm.Algorithm):
 
         if workers[0].game_state.player != -1:
             move_rates = [
-                self.tree[cidx].move_rate_cache
+                self._value(self.tree[cidx].move_rate_cache)
                 for cidx in range(node.children[0], node.children[1])]
 
             # make probabilities
@@ -242,5 +250,6 @@ class Algorithm(algorithm.Algorithm):
         result = []
         for idx in range(self.tree[0].children[0], self.tree[0].children[1]):
             node = self.tree[idx]
-            result += [(node.move, self._move_rate([root.statistic], [node.statistic])[0])]
+            result += [(node.move, self._value(self._move_rate(
+                [root.statistic], [node.statistic])[0]))]
         return result

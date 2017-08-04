@@ -7,7 +7,8 @@ import numpy as np
 
 class Algorithm(algorithm.Algorithm):
     Statistic = recordclass('Statistic', 'w n')
-    Update = np.array
+    Update = np.ndarray
+    Rate = np.ndarray
 
     def __init__(self, game_state: GameState, number_of_workers: int, grow_factor: int, exploration_factor: int):
         super().__init__(game_state, number_of_workers, grow_factor)
@@ -17,7 +18,7 @@ class Algorithm(algorithm.Algorithm):
         return [Algorithm.Statistic(w=np.zeros(game_state[0].player_count), n=0)
                 for _ in game_state]
 
-    def _move_rate(self, parent_statistic: [Statistic], child_statistic: [Statistic]) -> [np.array]:
+    def _move_rate(self, parent_statistic: [Statistic], child_statistic: [Statistic]) -> [Rate]:
         return [cs.w / (cs.n + 0.1) + self.exploration_factor * np.sqrt(np.log(ps.n) / (cs.n + 0.1))
                 for (ps, cs) in zip(parent_statistic, child_statistic)]
 
@@ -37,3 +38,9 @@ class Algorithm(algorithm.Algorithm):
 
     def _updated_update(self, update: [Update], statistic: [Statistic]) -> [Update]:
         return update
+
+    def _run_batch(self) -> None:
+        pass
+
+    def _value(self, rate: Rate) -> np.ndarray:
+        return rate
