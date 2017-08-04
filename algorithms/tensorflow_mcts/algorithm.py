@@ -164,5 +164,5 @@ class Algorithm(algorithm.Algorithm):
     def _run_batch(self):
         self.computation_graph.run_batch()
 
-    def _value(self, rate: Rate) -> np.ndarray:
+    def value(self, rate: Rate) -> np.ndarray:
         return self.computation_graph.value(rate)

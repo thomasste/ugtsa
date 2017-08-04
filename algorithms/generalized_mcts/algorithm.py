@@ -69,9 +69,6 @@ class Algorithm(algorithm.Algorithm):
     def _run_batch(self) -> None:
         raise NotImplementedError
 
-    def _value(self, rate: Rate) -> np.ndarray:
-        raise NotImplementedError
-
     def _random_playout_payoff(self, game_state: GameState) -> [Payoff]:
         stack = []
 
@@ -93,7 +90,7 @@ class Algorithm(algorithm.Algorithm):
 
         if workers[0].game_state.player != -1:
             move_rates = [
-                self._value(self.tree[cidx].move_rate_cache)
+                self.value(self.tree[cidx].move_rate_cache)
                 for cidx in range(node.children[0], node.children[1])]
 
             # make probabilities
@@ -209,6 +206,7 @@ class Algorithm(algorithm.Algorithm):
             updated_statistic_0, updated_statistic_1)
         updated_update = self._updated_update(
             updated_update_0, updated_update_1)
+        self._run_batch()
 
         # DOWN
         for idx, workers in down_workers:
@@ -243,13 +241,13 @@ class Algorithm(algorithm.Algorithm):
 
             self.__up_case(workers, result1, result2)
 
-    def move_rates(self) -> [(GameState.Move, np.ndarray)]:
+    def move_rates(self) -> [(GameState.Move, Rate)]:
         root = self.tree[0]
         assert root.children
 
         result = []
         for idx in range(self.tree[0].children[0], self.tree[0].children[1]):
             node = self.tree[idx]
-            result += [(node.move, self._value(self._move_rate(
-                [root.statistic], [node.statistic])[0]))]
+            result += [(node.move, self._move_rate(
+                [root.statistic], [node.statistic])[0])]
         return result

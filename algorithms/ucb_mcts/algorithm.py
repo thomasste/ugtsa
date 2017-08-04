@@ -42,5 +42,5 @@ class Algorithm(algorithm.Algorithm):
     def _run_batch(self) -> None:
         pass
 
-    def _value(self, rate: Rate) -> np.ndarray:
+    def value(self, rate: Rate) -> np.ndarray:
         return rate

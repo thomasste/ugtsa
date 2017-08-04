@@ -128,6 +128,9 @@ class GameState(game_state.GameState):
 
         return result
 
+    def as_matrix(self) -> np.array:
+        return np.array(self.board, copy=True)
+
     def __deepcopy__(self, memodict={}):
         game_state = GameState(self.board_size, self.group_penalty, self.min_bet, self.max_bet)
         game_state.player = self.player
