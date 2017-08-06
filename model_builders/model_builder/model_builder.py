@@ -13,55 +13,67 @@ def placeholder(dtype, shape=None, name=None):
     return result
 
 
-# TODO: add untrainable model
 class Model:
     def __init__(self):
         self.model = self.model_tail = \
             placeholder(tf.float32, name='model')
-        self.initial_model_parts = []
+        self.model_initializers = []
         self.variables = {}
+
+        self.seed = self.seed_tail = \
+            placeholder(tf.int64, name='random_seed')
+        self.seed_size = 0
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        initial_model = tf.concat(
-            self.initial_model_parts, 0,
-            name='initial_model') \
-            if self.initial_model_parts \
-            else tf.zeros((0, 1), name='initial_model')
-        add_to_collection('initial_model', initial_model)
+        model_initializer = \
+            tf.concat(self.model_initializers, 0, name='initial_model') \
+            if self.model_initializers \
+            else tf.zeros((0,), name='initial_model')
+        add_to_collection('model_initializer', model_initializer)
 
-    def get_variable(self, initial_value, name, reuse=False):
+        seed_size = tf.Variable(
+            self.seed_size, dtype=tf.int32, name='seed_size')
+        add_to_collection('seed_size', seed_size)
+
+    def get_variable(self, initializer, name, reuse=False):
         name = '{}/{}'.format(tf.get_variable_scope().name, name)
 
         if name not in self.variables:
-            vectorized_initial_value = tf.reshape(initial_value, (-1, 1))
-            height = vectorized_initial_value.get_shape()[0].value
-            self.initial_model_parts += [vectorized_initial_value]
-            vectorized_variable, self.model_tail = tf.split(
-                self.model_tail, (height, -1), 0, num=2)
+            flattened_initializer = \
+                tf.reshape(initializer, shape=(-1,))
+            flattened_size = flattened_initializer.get_shape()[0].value
+            self.model_initializers += [flattened_initializer]
+            flattened_variable, self.model_tail = tf.split(
+                self.model_tail, (flattened_size, -1), 0, num=2)
             self.variables[name] = tf.reshape(
-                vectorized_variable, initial_value.get_shape(), name=name)
+                flattened_variable, initializer.get_shape(), name=name)
             return self.variables[name]
         elif reuse:
             return self.variables[name]
         else:
-            raise Exception('reuse = False')
+            raise ValueError(
+                'get_variable: variable {} already exists'.format(name))
+
+    def get_seed(self):
+        seed, self.seed_tail = tf.split(self.seed_tail, (1, -1), 0, num=2)
+        return seed
 
 
 class ModelBuilder(object):
-    def __init__(self, variable_scope, statistic_size, update_size,
-                 game_state_board_shape, game_state_statistic_size,
-                 update_statistic_size, player_count, worker_count):
+    def __init__(self, variable_scope, player_count, worker_count,
+                 statistic_size, update_size, game_state_board_shape,
+                 game_state_statistic_size, update_statistic_size):
         self.variable_scope = variable_scope
+        self.player_count = player_count
+        self.worker_count = worker_count
         self.statistic_size = statistic_size
         self.update_size = update_size
         self.game_state_board_shape = game_state_board_shape
         self.game_state_statistic_size = game_state_statistic_size
         self.update_statistic_size = update_statistic_size
-        self.player_count = player_count
-        self.worker_count = worker_count
 
     def _empty_statistic_transformation(
             self, model, game_state_board, game_state_statistic):
@@ -105,7 +117,7 @@ class ModelBuilder(object):
                     tf.float32, [None, self.statistic_size],
                     name='output_gradient')
                 model_gradient, game_state_board_gradient, \
-                    game_state_statistic = tf.gradients(
+                    game_state_statistic_gradient = tf.gradients(
                         output,
                         [model.model, game_state_board, game_state_statistic],
                         grad_ys=output_gradient)
@@ -113,7 +125,7 @@ class ModelBuilder(object):
                 for name in ['output',
                              'model_gradient',
                              'game_state_board_gradient',
-                             'game_state_statistic']:
+                             'game_state_statistic_gradient']:
                     add_to_collection(name, locals()[name])
 
     def __build_move_rate_graph(self):
@@ -140,8 +152,9 @@ class ModelBuilder(object):
                     name='output_gradient')
                 model_gradient, parent_statistic_gradient, \
                     child_statistic_gradient = tf.gradients(
-                        output, [model.model, parent_statistic,
-                                 child_statistic], grad_ys=output_gradient)
+                        output,
+                        [model.model, parent_statistic, child_statistic],
+                        grad_ys=output_gradient)
 
                 for name in ['output',
                              'model_gradient',
@@ -168,7 +181,8 @@ class ModelBuilder(object):
                     [None, self.update_size],
                     name='output_gradient')
                 model_gradient, update_statistic_gradient = tf.gradients(
-                    output, [model.model, update_statistic], grad_ys=output_gradient)
+                    output, [model.model, update_statistic],
+                    grad_ys=output_gradient)
 
                 for name in ['output',
                              'model_gradient',
@@ -201,8 +215,8 @@ class ModelBuilder(object):
                     tf.float32,
                     [None, self.statistic_size],
                     name='output_gradient')
-                model_gradient, statistic_gradient, update_count, \
-                    update_gradient = tf.gradients(
+                model_gradient, statistic_gradient, update_count_gradient, \
+                    updates_gradient = tf.gradients(
                         output,
                         [model.model, statistic, update_count, updates],
                         grad_ys=output_gradient)
@@ -210,8 +224,8 @@ class ModelBuilder(object):
                 for name in ['output',
                              'model_gradient',
                              'statistic_gradient',
-                             'update_count',
-                             'update_gradient']:
+                             'update_count_gradient',
+                             'updates_gradient']:
                     add_to_collection(name, locals()[name])
 
     def __build_updated_update_graph(self):

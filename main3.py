@@ -10,23 +10,25 @@ worker_count = 10
 
 mb = ModelBuilder(
     variable_scope='basic',
+    player_count=2,
+    worker_count=worker_count,
     statistic_size=40,
     update_size=20,
     game_state_board_shape=[7, 7],
     game_state_statistic_size=2,
     update_statistic_size=2,
-    player_count=2,
-    worker_count=worker_count,
     empty_statistic_filter_shapes=[(2, 2, 16), (2, 2, 32)],
     empty_statistic_window_shapes=[(1, 2, 2, 1), (1, 2, 2, 1)],
     empty_statistic_hidden_output_sizes=[25, 25, 25],
     move_rate_hidden_output_sizes=[25, 25, 25],
     game_state_as_update_hidden_output_sizes=[25, 25, 25],
-    updated_statistic_lstm_layers=[50, 50, 50],
+    updated_statistic_lstm_state_sizes=[50, 50, 50],
     updated_statistic_hidden_output_sizes=[25, 25, 25],
     updated_update_hidden_output_sizes=[25, 25, 25])
 
 mb.build()
+
+exit(0)
 
 with tf.Session() as session:
     empty_statistic_model = session.run(
