@@ -57,7 +57,7 @@ with tf.Session() as session:
 
     a = Algorithm(
         game_state=game_state,
-        number_of_workers=worker_count,
+        worker_count=worker_count,
         grow_factor=5,
         session=session,
         variable_scope='basic',
@@ -70,7 +70,7 @@ with tf.Session() as session:
 
     a.improve()
 
-    for i in range(10000):
+    for i in range(100000):
         a.improve()
 
     print(a.tree[:20])

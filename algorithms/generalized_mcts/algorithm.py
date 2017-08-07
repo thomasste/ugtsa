@@ -22,7 +22,7 @@ class Algorithm(algorithm.Algorithm):
     Update = object
     Rate = object
 
-    def __init__(self, game_state: GameState, number_of_workers: int,
+    def __init__(self, game_state: GameState, worker_count: int,
                  grow_factor: int):
         super().__init__(game_state)
 
@@ -32,7 +32,7 @@ class Algorithm(algorithm.Algorithm):
                 direction=Algorithm.Direction.DOWN,
                 game_state=deepcopy(game_state),
                 update=None)
-            for _ in range(number_of_workers)]
+            for _ in range(worker_count)]
         self.tree = []
         self.grow_factor = grow_factor
 

@@ -12,7 +12,7 @@ class Algorithm(algorithm.Algorithm):
     Rate = int
 
     def __init__(
-            self, game_state: GameState, number_of_workers: int,
+            self, game_state: GameState, worker_count: int,
             grow_factor: int,
             session: tf.Session, variable_scope: str, training: bool,
             empty_statistic_model: np.ndarray,
@@ -20,7 +20,7 @@ class Algorithm(algorithm.Algorithm):
             game_state_as_update_model: np.ndarray,
             updated_statistic_model: np.ndarray,
             updated_update_model: np.ndarray):
-        super().__init__(game_state, number_of_workers, grow_factor)
+        super().__init__(game_state, worker_count, grow_factor)
 
         self.session = session
         self.variable_scope = variable_scope

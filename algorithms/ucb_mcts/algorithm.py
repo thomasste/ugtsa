@@ -11,9 +11,9 @@ class Algorithm(algorithm.Algorithm):
     Rate = np.ndarray
 
     def __init__(
-            self, game_state: GameState, number_of_workers: int,
+            self, game_state: GameState, worker_count: int,
             grow_factor: int, exploration_factor: int):
-        super().__init__(game_state, number_of_workers, grow_factor)
+        super().__init__(game_state, worker_count, grow_factor)
 
         self.exploration_factor = exploration_factor
 
