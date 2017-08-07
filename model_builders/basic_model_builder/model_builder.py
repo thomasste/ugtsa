@@ -57,13 +57,15 @@ def dense_layer(model, signal, output_size, name='layer', reuse=False):
 
 def bias_layer(model, signal, constant=0, name='bias', reuse=False):
     bias = model.get_variable(
-        tf.constant(constant, tf.float32, shape=(signal.get_shape()[1].value,)),
+        tf.constant(constant, tf.float32,
+                    shape=(signal.get_shape()[1].value,)),
         name=name, reuse=reuse)
     return signal + bias
 
 
 def dropout_layer(model, signal, rate=0.5, training=False):
-    rand = stateless_random_uniform(tf.shape(signal), model.get_seed())
+    seed = tf.concat([model.get_seed(), model.get_seed()], axis=0)
+    rand = stateless_random_uniform(tf.shape(signal), seed)
     mask = tf.to_float(rand > rate)
     return tf.cond(training, lambda: signal * mask, lambda: signal)
 

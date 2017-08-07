@@ -35,16 +35,8 @@ class Algorithm(algorithm.Algorithm):
                 game_state=deepcopy(game_state),
                 update=None)
             for _ in range(number_of_workers)]
-        self.tree = [
-            Algorithm.Node(
-                number_of_visits=0,
-                move=None,
-                statistic=self._empty_statistic([game_state])[0],
-                parent=None,
-                children=None,
-                move_rate_cache=None)]
+        self.tree = []
         self.grow_factor = grow_factor
-        self._run_batch()
 
     def _empty_statistic(self, game_state: [GameState]) -> [Statistic]:
         raise NotImplementedError
@@ -132,6 +124,17 @@ class Algorithm(algorithm.Algorithm):
                 worker.direction = Algorithm.Direction.DOWN
 
     def improve(self):
+        if not self.tree:
+            self.tree += [
+                Algorithm.Node(
+                number_of_visits=0,
+                move=None,
+                statistic=self._empty_statistic([self.workers[0].game_state])[0],
+                parent=None,
+                children=None,
+                move_rate_cache=None)]
+            self._run_batch()
+
         empty_statistic_0 = []
         move_rate_0 = []
         move_rate_1 = []

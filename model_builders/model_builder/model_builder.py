@@ -21,7 +21,7 @@ class Model:
         self.variables = {}
 
         self.seed = self.seed_tail = \
-            placeholder(tf.int64, name='random_seed')
+            placeholder(tf.int64, name='seed')
         self.seed_size = 0
 
     def __enter__(self):
@@ -37,6 +37,7 @@ class Model:
         seed_size = tf.Variable(
             self.seed_size, dtype=tf.int32, name='seed_size')
         add_to_collection('seed_size', seed_size)
+        add_to_collection('seed_gradient', tf.zeros((self.seed_size,)))
 
     def get_variable(self, initializer, name, reuse=False):
         name = '{}/{}'.format(tf.get_variable_scope().name, name)
@@ -58,6 +59,7 @@ class Model:
                 'get_variable: variable {} already exists'.format(name))
 
     def get_seed(self):
+        self.seed_size += 1
         seed, self.seed_tail = tf.split(self.seed_tail, (1, -1), 0, num=2)
         return seed
 
@@ -265,6 +267,7 @@ class ModelBuilder(object):
         with tf.variable_scope(self.variable_scope):
             with tf.variable_scope('settings'):
                 self.training = placeholder(tf.bool, name='training')
+                add_to_collection('training_gradient', tf.zeros((1,)))
 
             self.__build_empty_statistic_graph()
             self.__build_move_rate_graph()

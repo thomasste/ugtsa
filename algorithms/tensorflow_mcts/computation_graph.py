@@ -1,43 +1,43 @@
 from recordclass import recordclass
+
 import numpy as np
 import tensorflow as tf
 
 
 class ComputationGraph:
     Transformation = recordclass(
-        'Transformation', 'model model_gradient '
-                          'inputs input_gradients '
-                          'output output_gradient '
-                          'model_matrix '
-                          'input_lengths')
-    Node = recordclass('Node', 'transformation inputs value')
-    ForwardTask = recordclass('ForwardTask', 'inputs')
+        'Transformation', 'batch_inputs batch_input_gradients '
+                          'inputs input_gradients input_shapes '
+                          'output output_gradient')
+    Node = recordclass('Node', 'transformation inputs output')
+    ForwardTask = recordclass('ForwardTask', 'batch_inputs inputs')
 
     def __init__(self, session: tf.Session):
         self.session = session
         self.transformations = []
         self.nodes = []
         self.batches = [0]
+        self.batch_inputs = []
 
-    def transformation(self,
-            model: [tf.Tensor], model_gradient: [tf.Tensor],
-            inputs: [tf.Tensor], input_gradients: [tf.Tensor],
-            output: tf.Tensor, output_gradient: tf.Tensor,
-            model_matrix: int) -> int:
-        # print([input.get_shape()
-        #        for input in inputs])
+    def __tensorflow_shape_to_numpy_shape(self, shape):
+        return [x if x is not None else -1 for x in shape.as_list()]
+
+    def transformation(
+            self, batch_inputs: [tf.Tensor],
+            batch_input_gradients: [tf.Tensor], inputs: [tf.Tensor],
+            input_gradients: [tf.Tensor], output: tf.Tensor,
+            output_gradient: tf.Tensor) -> int:
         self.transformations += [
             ComputationGraph.Transformation(
-                model=model,
-                model_gradient=model_gradient,
+                batch_inputs=batch_inputs,
+                batch_input_gradients=batch_input_gradients,
                 inputs=inputs,
-                input_lengths=[
-                    input.get_shape().as_list()[1] if len(input.get_shape().as_list()) > 1 else None
-                    for input in inputs],
                 input_gradients=input_gradients,
+                input_shapes=[
+                    self.__tensorflow_shape_to_numpy_shape(input.get_shape())
+                    for input in inputs],
                 output=output,
-                output_gradient=output_gradient,
-                model_matrix=model_matrix)]
+                output_gradient=output_gradient)]
         return len(self.transformations) - 1
 
     def matrix(self, matrix: np.ndarray) -> int:
@@ -45,107 +45,84 @@ class ComputationGraph:
             ComputationGraph.Node(
                 transformation=None,
                 inputs=None,
-                value=matrix)]
+                output=matrix)]
         return len(self.nodes) - 1
 
-    # def node(self, transformation: int, inputs: Union[[int], [[int]]]) \
-    #         -> int:
-    def node(self, transformation: int, inputs) \
-            -> int:
+    # inputs: [Either int [int]]
+    def transformation_run(
+            self, transformation: int, inputs) -> int:
         self.nodes += [
             ComputationGraph.Node(
                 transformation=transformation,
                 inputs=inputs,
-                value=None)]
+                output=None)]
         return len(self.nodes) - 1
 
-    def run_batch(self) -> None:
+    def __prepared_input(self, input, input_shape):
+        if type(input) is list:
+            concatenated_input = np.concatenate(
+                [self.nodes[node_idx].output for node_idx in input])
+            expanded_input = np.lib.pad(
+                concatenated_input,
+                (0, input_shape[-1] - concatenated_input.shape[0]),
+                'constant')
+            return expanded_input
+        else:
+            return self.nodes[input].output
+
+    # batch_inputs: Map int [int]
+    def run_batch(self, batch_inputs) -> None:
         self.batches += [len(self.nodes)]
+        self.batch_inputs += [batch_inputs]
 
         tasks = [
             ComputationGraph.ForwardTask(
+                batch_inputs=[],
                 inputs=[[] for _ in transformation.inputs])
             for transformation in self.transformations]
+
+        for transformation_index, bis in batch_inputs.items():
+            task = tasks[transformation_index]
+            for batch_input in bis:
+                task.batch_inputs += [self.nodes[batch_input].output]
 
         for i in range(self.batches[-2], self.batches[-1]):
             node = self.nodes[i]
             if node.transformation is not None:
                 transformation = self.transformations[node.transformation]
-                for input, input_length, task_input in zip(
-                        node.inputs, transformation.input_lengths,
-                        tasks[node.transformation].inputs):
-                    # print(type(input))
-                    if type(input) is list:
-                        tmp_1 = np.concatenate(
-                            [self.nodes[node_idx].value for node_idx in input])
-                        # print(tmp_1)
-                        # print(input_length)
-                        # print(type(input_length))
-                        # print(tmp_1.shape[0])
-                        # print(type(tmp_1.shape[0]))
-                        # print((0, input_length - tmp_1.shape[0]))
-                        tmp_2 = np.lib.pad(
-                            tmp_1, (0, input_length - tmp_1.shape[0]),
-                            'constant')
-                        task_input += [tmp_2]
-                    else:
-                        task_input += [self.nodes[input].value]
+                task = tasks[node.transformation]
+                for task_input, node_input, input_shape in zip(
+                        task.inputs, node.inputs,
+                        transformation.input_shapes):
+                    task_input += [self.__prepared_input(
+                        node_input, input_shape)]
 
-        # print("dupa")
-        # print("dupa")
-        # print("dupa")
-        # print("dupa")
-        # print("dupa")
-        # print("dupa")
-
-        # print(self.nodes)
-        # print(self.transformations)
-        # print(tasks)
-
-        # print({
-        #     **{
-        #         tensor: np.reshape(value, [x if x is not None else -1 for x in tensor.get_shape().as_list()])
-        #         for transformation, task in zip(
-        #             self.transformations, tasks)
-        #         for tensor, value in zip(
-        #             transformation.inputs, task.inputs)
-        #     },
-        #     **{
-        #         transformation.model:
-        #             self.nodes[transformation.model_matrix].value
-        #         for transformation in self.transformations
-        #     }
-        # })
+        fetches = [
+            transformation.output
+            for transformation in self.transformations]
+        batch_input_feed_dict = {
+            k: v
+            for transformation, task in zip(self.transformations, tasks)
+            for k, v in zip(transformation.batch_inputs, task.batch_inputs)}
+        input_feed_dict = {
+            k: np.reshape(v, shape)
+            for transformation, task in zip(self.transformations, tasks)
+            for k, v, shape in zip(
+                transformation.inputs, task.inputs,
+                transformation.input_shapes)}
 
         results = self.session.run(
-            [transformation.output
-             for task, transformation in zip(tasks, self.transformations)],
+            fetches=fetches,
             feed_dict={
-                **{
-                    tensor: np.reshape(value, [x if x is not None else -1 for x in tensor.get_shape().as_list()])
-                    for transformation, task in zip(
-                        self.transformations, tasks)
-                    for tensor, value in zip(
-                        transformation.inputs, task.inputs)
-                },
-                **{
-                    transformation.model:
-                        self.nodes[transformation.model_matrix].value
-                    for transformation in self.transformations
-                }
-            })
-
-        # print(results)
-        # print(results[0][0][0])
-        # print(type(results[0][0][0]))
-        # exit(0)
+                **batch_input_feed_dict,
+                **input_feed_dict})
 
         for i in range(self.batches[-2], self.batches[-1]):
             node = self.nodes[i]
             if node.transformation is not None:
-                node.value, results[node.transformation][0] = \
+                node.output, results[node.transformation][0] = \
                     results[node.transformation][0][0], \
                     results[node.transformation][0][1:]
 
     def value(self, node: int) -> np.ndarray:
-        return self.nodes[node].value
+        return self.nodes[node].output
