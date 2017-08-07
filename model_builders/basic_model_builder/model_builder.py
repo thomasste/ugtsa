@@ -38,7 +38,7 @@ def batch_normalization_layer(model, signal):
 
 
 def activation_layer(signal):
-    return tf.nn.relu(signal)
+    return tf.sigmoid(signal)
 
 
 def max_pool_layer(signal, window_shape):
@@ -180,13 +180,18 @@ class ModelBuilder(model_builder.ModelBuilder):
         print(signal.get_shape())
 
         for idx, output_size in enumerate(
-                self.move_rate_hidden_output_sizes + [self.player_count]):
+                self.move_rate_hidden_output_sizes):
             with tf.variable_scope('dense_layer_{}'.format(idx)):
                 signal = dense_layer(model, signal, output_size)
                 signal = bias_layer(model, signal)
                 signal = activation_layer(signal)
                 signal = dropout_layer(model, signal, training=self.training)
                 print(signal.get_shape())
+
+        signal = dense_layer(model, signal, self.player_count)
+        signal = bias_layer(model, signal)
+        signal = tf.nn.softmax(signal)
+        print(signal.get_shape())
 
         return signal
 

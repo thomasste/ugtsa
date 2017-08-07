@@ -68,10 +68,7 @@ class Algorithm(algorithm.Algorithm):
 
             # make probabilities
             xs = [x[workers[0].game_state.player] for x in move_rates]
-            m = min(xs)
-            xs = [x - m for x in xs]
-            s = sum(xs)
-            xs = [x / s for x in xs]
+            xs = [x / sum(xs) for x in xs]
         else:
             xs = [1 / (node.children[1] - node.children[0])
                   for _ in range(node.children[1] - node.children[0])]

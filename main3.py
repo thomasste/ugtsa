@@ -70,7 +70,8 @@ with tf.Session() as session:
 
     a.improve()
 
-    for i in range(100000):
+    for i in range(10000):
         a.improve()
 
-    print(a.tree[:20])
+    print([n for n in a.tree[:20]])
+    print([n.number_of_visits for n in a.tree[:20]])
