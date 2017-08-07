@@ -123,57 +123,42 @@ class Algorithm(algorithm.Algorithm):
     def _update_statistic(self, game_state: GameState):
         return game_state.random_playout_payoff()  # TODO: make abstract
 
-    def _empty_statistic(self, game_state: [GameState]) -> [Statistic]:
-        game_state_board = [
-            self.computation_graph.matrix(gs.as_matrix())
-            for gs in game_state]
-        game_state_statistic = [
-            self.computation_graph.matrix(self._game_state_statistic(gs))
-            for gs in game_state]
+    def _empty_statistic(self, game_state: GameState) -> Statistic:
+        self.computation_graph.matrix(game_state.as_matrix())
+        self.computation_graph.matrix(self._game_state_statistic(game_state))
 
-        return [
-            self.computation_graph.transformation_run(
-                transformation=self.empty_statistic_transformation,
-                inputs=[gsb, gss])
-            for gsb, gss in zip(game_state_board, game_state_statistic)]
+        return self.computation_graph.transformation_run(
+            transformation=self.empty_statistic_transformation,
+            inputs=[self.computation_graph.matrix(game_state.as_matrix()),
+                    self.computation_graph.matrix(
+                        self._game_state_statistic(game_state))])
 
-    def _move_rate(self, parent_statistic: [Statistic],
-                   child_statistic: [Statistic]) -> [Rate]:
-        return [
-            self.computation_graph.transformation_run(
-                transformation=self.move_rate_transformation,
-                inputs=[ps, cs])
-            for ps, cs in zip(parent_statistic, child_statistic)]
+    def _move_rate(
+            self, parent_statistic: Statistic, child_statistic: Statistic) \
+            -> Rate:
+        return self.computation_graph.transformation_run(
+            transformation=self.move_rate_transformation,
+            inputs=[parent_statistic, child_statistic])
 
-    def _game_state_as_update(self, game_state: [GameState]) -> [Update]:
-        update_statistic = [
-            self.computation_graph.matrix(self._update_statistic(gs))
-            for gs in game_state]
+    def _game_state_as_update(self, game_state: GameState) -> Update:
+        return self.computation_graph.transformation_run(
+            transformation=self.game_state_as_update_transformation,
+            inputs=[self.computation_graph.matrix(
+                self._update_statistic(game_state))])
 
-        return [
-            self.computation_graph.transformation_run(
-                transformation=self.game_state_as_update_transformation,
-                inputs=[us])
-            for us in update_statistic]
+    def _updated_statistic(self, statistic: Statistic, updates: [Update]) \
+            -> Statistic:
+        return self.computation_graph.transformation_run(
+            transformation=self.updated_statistic_transformation,
+            inputs=[statistic,
+                    self.computation_graph.matrix(np.array(len(updates))),
+                    updates])
 
-    def _updated_statistic(self, statistic: [Statistic], updates: [[Update]]) \
-            -> [Statistic]:
-        update_count = [
-            self.computation_graph.matrix(np.array(len(us)))
-            for us in updates]
-        return [
-            self.computation_graph.transformation_run(
-                transformation=self.updated_statistic_transformation,
-                inputs=[s, uc, us])
-            for s, uc, us in zip(statistic, update_count, updates)]
-
-    def _updated_update(self, update: [Update], statistic: [Statistic]) \
-            -> [Update]:
-        return [
-            self.computation_graph.transformation_run(
-                transformation=self.updated_update_transformation,
-                inputs=[u, s])
-            for u, s in zip(update, statistic)]
+    def _updated_update(self, update: Update, statistic: Statistic) \
+            -> Update:
+        return self.computation_graph.transformation_run(
+            transformation=self.updated_update_transformation,
+            inputs=[update, statistic])
 
     def _run_batch(self):
         batch_inputs = {
