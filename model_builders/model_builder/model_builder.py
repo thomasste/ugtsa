@@ -37,7 +37,8 @@ class Model:
         seed_size = tf.Variable(
             self.seed_size, dtype=tf.int32, name='seed_size')
         add_to_collection('seed_size', seed_size)
-        add_to_collection('seed_gradient', tf.zeros((self.seed_size,)))
+        add_to_collection(
+            'seed_gradient', tf.zeros((self.seed_size,), dtype=tf.int64))
 
     def get_variable(self, initializer, name, reuse=False):
         name = '{}/{}'.format(tf.get_variable_scope().name, name)
@@ -267,7 +268,8 @@ class ModelBuilder(object):
         with tf.variable_scope(self.variable_scope):
             with tf.variable_scope('settings'):
                 self.training = placeholder(tf.bool, name='training')
-                add_to_collection('training_gradient', tf.zeros((1,)))
+                add_to_collection(
+                    'training_gradient', tf.constant(False, dtype=tf.bool))
 
             self.__build_empty_statistic_graph()
             self.__build_move_rate_graph()

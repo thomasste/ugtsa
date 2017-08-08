@@ -3,6 +3,7 @@ from model_builders.basic_model_builder.model_builder import ModelBuilder
 from games.omringa.game_state import GameState
 
 import tensorflow as tf
+import time
 
 game_state = GameState(7)
 worker_count = 10
@@ -68,10 +69,24 @@ with tf.Session() as session:
         updated_statistic_model=updated_statistic_model,
         updated_update_model=updated_update_model)
 
-    a.improve()
+    start = time.time()
 
-    for i in range(10000):
+    for i in range(1000):
         a.improve()
+
+    middle = time.time()
+
+    print(a.computation_graph.gradients([
+        a.empty_statistic_model,
+        a.move_rate_model,
+        a.game_state_as_update_model,
+        a.updated_statistic_model,
+        a.updated_update_model],
+        len(a.computation_graph.nodes) - 6))
+
+    end = time.time()
+
+    print("forward: {} back: {}".format(middle - start, end - middle))
 
     print([n for n in a.tree[:20]])
     print([n.number_of_visits for n in a.tree[:20]])

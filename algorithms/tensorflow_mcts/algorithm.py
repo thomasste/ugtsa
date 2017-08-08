@@ -103,7 +103,10 @@ class Algorithm(algorithm.Algorithm):
             batch_input_gradients=[
                 tf.get_collection('{}/{}/{}_gradient'.format(
                     self.variable_scope, name, batch_input_name))[0]
-                for batch_input_name in ['model', 'seed']],
+                for batch_input_name in ['model', 'seed']] + [
+                    tf.get_collection(
+                        '{}/settings/training_gradient'
+                        .format(self.variable_scope))[0]],
             inputs=[
                 tf.get_collection('{}/{}/{}'.format(
                     self.variable_scope, name, input))[0]
@@ -113,9 +116,9 @@ class Algorithm(algorithm.Algorithm):
                     self.variable_scope, name, input))[0]
                     for input in inputs],
             output=tf.get_collection(
-                '{}/{}/output'.format(self.variable_scope, name)),
+                '{}/{}/output'.format(self.variable_scope, name))[0],
             output_gradient=tf.get_collection(
-                '{}/{}/output_gradient'.format(self.variable_scope, name)))
+                '{}/{}/output_gradient'.format(self.variable_scope, name))[0])
 
     def _game_state_statistic(self, game_state: GameState):
         return game_state.random_playout_payoff()  # TODO: make abstract
