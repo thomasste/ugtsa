@@ -235,11 +235,14 @@ class ModelBuilder(object):
                     tf.float32,
                     [None, self.statistic_size],
                     name='output_gradient')
-                model_gradient, statistic_gradient, update_count_gradient, \
-                    updates_gradient = tf.gradients(
+                model_gradient, statistic_gradient, updates_gradient = \
+                    tf.gradients(
                         output,
-                        [model.model, statistic, update_count, updates],
+                        [model.model, statistic, updates],
                         grad_ys=output_gradient)
+
+                update_count_gradient = tf.zeros(
+                    tf.shape(update_count), dtype=tf.int32)
 
                 for name in ['output',
                              'model_gradient',

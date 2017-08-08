@@ -112,7 +112,7 @@ class Algorithm(algorithm.Algorithm):
                     self.variable_scope, name, input))[0]
                     for input in inputs],
             input_gradients=[
-                tf.get_collection('{}/{}/{}'.format(
+                tf.get_collection('{}/{}/{}_gradient'.format(
                     self.variable_scope, name, input))[0]
                     for input in inputs],
             output=tf.get_collection(

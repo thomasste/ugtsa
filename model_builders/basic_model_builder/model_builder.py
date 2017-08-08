@@ -243,6 +243,8 @@ class ModelBuilder(model_builder.ModelBuilder):
 
         signal = inputs[-1]
         print(signal.get_shape())
+        signal = tf.concat([signal, statistic], axis=1)
+        print(signal.get_shape())
 
         for idx, output_size in enumerate(
                 self.updated_statistic_hidden_output_sizes +
