@@ -24,7 +24,8 @@ mb = ModelBuilder(
     game_state_as_update_hidden_output_sizes=[25, 25, 25],
     updated_statistic_lstm_state_sizes=[25, 25, 25],
     updated_statistic_hidden_output_sizes=[25, 25, 25],
-    updated_update_hidden_output_sizes=[25, 25, 25])
+    updated_update_hidden_output_sizes=[25, 25, 25],
+    cost_function_regularization_factor=0.001)
 
 mb.build()
 
@@ -86,7 +87,7 @@ with tf.Session() as session:
 
     end = time.time()
 
-    print("forward: {} back: {}".format(middle - start, end - middle))
+    print("forward: {} backward: {}".format(middle - start, end - middle))
 
     print([n for n in a.tree[:20]])
     print([n.number_of_visits for n in a.tree[:20]])

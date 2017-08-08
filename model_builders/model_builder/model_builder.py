@@ -64,6 +64,10 @@ class Model:
         seed, self.seed_tail = tf.split(self.seed_tail, (1, -1), 0, num=2)
         return seed
 
+    def size(self):
+        return sum([model_initializer.shape[0].value
+                    for model_initializer in self.model_initializers])
+
 
 class ModelBuilder(object):
     def __init__(self, variable_scope, player_count, worker_count,
@@ -94,6 +98,13 @@ class ModelBuilder(object):
         raise NotImplementedError
 
     def _updated_update_transformation(self, model, update, statistic):
+        raise NotImplementedError
+
+    def _cost_function_transformation(
+            self, predicted_move_rates, real_move_rates,
+            empty_statistic_model, move_rate_model,
+            game_state_as_update_model, updated_statistic_model,
+            updated_update_model):
         raise NotImplementedError
 
     def __build_empty_statistic_graph(self):
@@ -131,6 +142,8 @@ class ModelBuilder(object):
                              'game_state_statistic_gradient']:
                     add_to_collection(name, locals()[name])
 
+                self.empty_statistic_model_size = model.size()
+
     def __build_move_rate_graph(self):
         print('move_rate')
         with tf.variable_scope('move_rate'):
@@ -165,6 +178,8 @@ class ModelBuilder(object):
                              'child_statistic_gradient']:
                     add_to_collection(name, locals()[name])
 
+                self.move_rate_model_size = model.size()
+
     def __build_game_state_as_update_graph(self):
         print('game_state_as_update')
         with tf.variable_scope('game_state_as_update'):
@@ -191,6 +206,8 @@ class ModelBuilder(object):
                              'model_gradient',
                              'update_statistic_gradient']:
                     add_to_collection(name, locals()[name])
+
+                self.game_state_as_update_model_size = model.size()
 
     def __build_updated_statistic_graph(self):
         print('updated_statistic')
@@ -231,6 +248,8 @@ class ModelBuilder(object):
                              'updates_gradient']:
                     add_to_collection(name, locals()[name])
 
+                self.updated_statistic_model_size = model.size()
+
     def __build_updated_update_graph(self):
         print('updated_update')
         with tf.variable_scope('updated_update'):
@@ -264,6 +283,76 @@ class ModelBuilder(object):
                              'update_gradient']:
                     add_to_collection(name, locals()[name])
 
+                self.updated_update_model_size = model.size()
+
+    def __build_cost_function_graph(self):
+        print('cost_function')
+        with tf.variable_scope('cost_function'):
+            predicted_move_rates = placeholder(
+                tf.float32,
+                [None, self.player_count],
+                name='predicted_move_rates')
+            real_move_rates = placeholder(
+                tf.float32,
+                [None, self.player_count],
+                name='real_move_rates')
+
+            empty_statistic_model = placeholder(
+                tf.float32,
+                [self.empty_statistic_model_size],
+                name='empty_statistic_model')
+            move_rate_model = placeholder(
+                tf.float32,
+                [self.move_rate_model_size],
+                name='move_rate_model')
+            game_state_as_update_model = placeholder(
+                tf.float32,
+                [self.game_state_as_update_model_size],
+                name='game_state_as_update_model')
+            updated_statistic_model = placeholder(
+                tf.float32,
+                [self.updated_statistic_model_size],
+                name='updated_statistic_model')
+            updated_update_model = placeholder(
+                tf.float32,
+                [self.updated_update_model_size],
+                name='updated_update_model')
+
+            with tf.variable_scope('transformation'):
+                signal = self._cost_function_transformation(
+                    predicted_move_rates, real_move_rates,
+                    empty_statistic_model, move_rate_model,
+                    game_state_as_update_model, updated_statistic_model,
+                    updated_update_model)
+
+            output = tf.identity(signal, 'output')
+            output_gradient = placeholder(
+                tf.float32,
+                [],
+                name='output_gradient')
+
+            predicted_move_rates_gradient, real_move_rates_gradient, \
+                empty_statistic_model_gradient, move_rate_model_gradient, \
+                game_state_as_update_model_gradient, \
+                updated_statistic_model_gradient, \
+                updated_update_model_gradient = tf.gradients(
+                    output,
+                    [predicted_move_rates, real_move_rates,
+                     empty_statistic_model, move_rate_model,
+                     game_state_as_update_model, updated_statistic_model,
+                     updated_update_model],
+                    grad_ys=output_gradient)
+
+            for name in ['output',
+                         'predicted_move_rates_gradient',
+                         'real_move_rates_gradient',
+                         'empty_statistic_model_gradient',
+                         'move_rate_model_gradient',
+                         'game_state_as_update_model_gradient',
+                         'updated_statistic_model_gradient',
+                         'updated_update_model_gradient']:
+                add_to_collection(name, locals()[name])
+
     def build(self):
         with tf.variable_scope(self.variable_scope):
             with tf.variable_scope('settings'):
@@ -276,3 +365,4 @@ class ModelBuilder(object):
             self.__build_game_state_as_update_graph()
             self.__build_updated_statistic_graph()
             self.__build_updated_update_graph()
+            self.__build_cost_function_graph()

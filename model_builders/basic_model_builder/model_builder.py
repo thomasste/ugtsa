@@ -118,7 +118,8 @@ class ModelBuilder(model_builder.ModelBuilder):
                  game_state_as_update_hidden_output_sizes,
                  updated_statistic_lstm_state_sizes,
                  updated_statistic_hidden_output_sizes,
-                 updated_update_hidden_output_sizes):
+                 updated_update_hidden_output_sizes,
+                 cost_function_regularization_factor):
         super().__init__(
             variable_scope, player_count, worker_count,
             statistic_size, update_size, game_state_board_shape,
@@ -138,6 +139,8 @@ class ModelBuilder(model_builder.ModelBuilder):
             updated_statistic_hidden_output_sizes
         self.updated_update_hidden_output_sizes = \
             updated_update_hidden_output_sizes
+        self.cost_function_regularization_factor = \
+            cost_function_regularization_factor
 
     def _empty_statistic_transformation(
             self, model, game_state_board, game_state_statistic):
@@ -268,3 +271,18 @@ class ModelBuilder(model_builder.ModelBuilder):
                 print(signal.get_shape())
 
         return signal
+
+    def _cost_function_transformation(
+            self, predicted_move_rates, real_move_rates,
+            empty_statistic_model, move_rate_model,
+            game_state_as_update_model, updated_statistic_model,
+            updated_update_model):
+        regularizer = tf.reduce_sum([
+            tf.nn.l2_loss(model)
+            for model in [empty_statistic_model, move_rate_model,
+                          game_state_as_update_model, updated_statistic_model,
+                          updated_update_model]])
+        loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
+            logits=predicted_move_rates, labels=real_move_rates))
+
+        return loss + self.cost_function_regularization_factor * regularizer
