@@ -55,7 +55,7 @@ def dense_layer(model, signal, output_size, name='layer', reuse=False):
     return signal
 
 
-def bias_layer(model, signal, constant=0, name='bias', reuse=False):
+def bias_layer(model, signal, constant=0., name='bias', reuse=False):
     bias = model.get_variable(
         tf.constant(constant, tf.float32,
                     shape=(signal.get_shape()[1].value,)),
@@ -79,7 +79,7 @@ def lstm(model, signal, old_state, old_output):
             dense_layer(model, signal, state_size, name='W_f', reuse=True) +
             dense_layer(model, old_output, state_size, name='U_f',
                         reuse=True),
-            name='B_f', reuse=True))
+            name='B_f', constant=1., reuse=True))
     i = tf.sigmoid(
         bias_layer(
             model,

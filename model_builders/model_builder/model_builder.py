@@ -28,11 +28,18 @@ class Model:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        model_initializer = \
-            tf.concat(self.model_initializers, 0, name='initial_model') \
+        model_initializer = tf.Variable(
+            tf.concat(self.model_initializers, 0) \
             if self.model_initializers \
-            else tf.zeros((0,), name='initial_model')
+            else tf.zeros((0,)), name='model_initializer')
         add_to_collection('model_initializer', model_initializer)
+
+        model_initializer_setter_input = placeholder(
+            tf.float32, shape=model_initializer.get_shape(),
+            name='model_initializer_setter_input')
+        add_to_collection('model_initializer_setter', tf.assign(
+            model_initializer, model_initializer_setter_input))
+
 
         seed_size = tf.Variable(
             self.seed_size, dtype=tf.int32, name='seed_size')
@@ -329,26 +336,21 @@ class ModelBuilder(object):
                     updated_update_model)
 
             output = tf.identity(signal, 'output')
-            output_gradient = placeholder(
-                tf.float32,
-                [],
-                name='output_gradient')
 
-            predicted_move_rates_gradient, real_move_rates_gradient, \
-                empty_statistic_model_gradient, move_rate_model_gradient, \
+            predicted_move_rates_gradient, empty_statistic_model_gradient, \
+                move_rate_model_gradient, \
                 game_state_as_update_model_gradient, \
                 updated_statistic_model_gradient, \
                 updated_update_model_gradient = tf.gradients(
                     output,
-                    [predicted_move_rates, real_move_rates,
-                     empty_statistic_model, move_rate_model,
-                     game_state_as_update_model, updated_statistic_model,
-                     updated_update_model],
-                    grad_ys=output_gradient)
+                    [predicted_move_rates, empty_statistic_model,
+                     move_rate_model,
+                     game_state_as_update_model,
+                     updated_statistic_model,
+                     updated_update_model])
 
             for name in ['output',
                          'predicted_move_rates_gradient',
-                         'real_move_rates_gradient',
                          'empty_statistic_model_gradient',
                          'move_rate_model_gradient',
                          'game_state_as_update_model_gradient',

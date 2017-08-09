@@ -129,16 +129,13 @@ class ComputationGraph:
                     results[node.transformation][0], \
                     results[node.transformation][1:]
 
-    def gradients(self, xs: [int], y: int, y_gradient=None):
+    def gradients(self, xs: [int], y_grads=None):
         gradients = [
             np.zeros(node.output.shape, dtype=node.output.dtype)
             for node in self.nodes]
 
-        if y_gradient is not None:
-            gradients[y] = y_gradient
-        else:
-            gradients[y] = np.ones(
-                self.nodes[y].output.shape, dtype=self.nodes[y].output.dtype)
+        for k, v in y_grads.items():
+            gradients[k] = v
 
         batches = list(self.batches)
         batch_inputs = list(self.batch_inputs)

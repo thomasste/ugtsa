@@ -226,4 +226,5 @@ class Algorithm(algorithm.Algorithm):
             node = self.tree[idx]
             result += [
                 (node.move, self._move_rate(root.statistic, node.statistic))]
+        self._run_batch()
         return result
