@@ -15,7 +15,7 @@ class Algorithm(algorithm.Algorithm):
     Worker = recordclass(
         'Worker', 'node direction game_state update')
     Node = recordclass(
-        'Node', 'number_of_visits move statistic parent children '
+        'Node', 'number_of_visits statistic parent children '
                 'move_rate_cache')
 
     Statistic = object
@@ -78,17 +78,16 @@ class Algorithm(algorithm.Algorithm):
 
         for cidx, worker in zip(cidxs, workers):
             worker.node = cidx
-            worker.game_state.apply_move(self.tree[worker.node].move)
+            worker.game_state.apply_move(cidx - node.children[0])
 
     def __down_expand_case(self, workers, statistics):
         node = self.tree[workers[0].node]
 
         node.children = (len(self.tree), len(self.tree) + len(statistics))
 
-        for statistic, move in zip(statistics, workers[0].game_state.moves()):
+        for statistic in statistics:
             self.tree += [Algorithm.Node(
                 number_of_visits=0,
-                move=move,
                 statistic=statistic,
                 parent=workers[0].node,
                 children=None,
@@ -111,7 +110,7 @@ class Algorithm(algorithm.Algorithm):
 
         if node.parent is not None:
             for worker in workers:
-                worker.game_state.undo_move(node.move)
+                worker.game_state.undo_move()
                 worker.node = node.parent
         else:
             for worker in workers:
@@ -123,7 +122,6 @@ class Algorithm(algorithm.Algorithm):
             self.tree += [
                 Algorithm.Node(
                     number_of_visits=0,
-                    move=None,
                     statistic=self._empty_statistic(
                         self.workers[0].game_state),
                     parent=None,
@@ -159,11 +157,11 @@ class Algorithm(algorithm.Algorithm):
             else:
                 if node.number_of_visits >= self.grow_factor \
                         and not workers[0].game_state.is_final():
-                    for move in workers[0].game_state.moves():
-                        workers[0].game_state.apply_move(move)
+                    for move_index in range(workers[0].game_state.move_count()):
+                        workers[0].game_state.apply_move(move_index)
                         empty_statistic += [self._empty_statistic(
                             workers[0].game_state)]
-                        workers[0].game_state.undo_move(move)
+                        workers[0].game_state.undo_move()
                 else:
                     for worker in workers:
                         game_state_as_update += [self._game_state_as_update(
@@ -197,7 +195,7 @@ class Algorithm(algorithm.Algorithm):
             else:
                 if node.number_of_visits >= self.grow_factor \
                         and not workers[0].game_state.is_final():
-                    move_count = len(workers[0].game_state.moves())
+                    move_count = workers[0].game_state.move_count()
                     result, empty_statistic = \
                         empty_statistic[:move_count], \
                         empty_statistic[move_count:]
@@ -224,7 +222,6 @@ class Algorithm(algorithm.Algorithm):
         result = []
         for idx in range(self.tree[0].children[0], self.tree[0].children[1]):
             node = self.tree[idx]
-            result += [
-                (node.move, self._move_rate(root.statistic, node.statistic))]
+            result += [self._move_rate(root.statistic, node.statistic)]
         self._run_batch()
         return result

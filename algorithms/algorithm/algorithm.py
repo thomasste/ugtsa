@@ -10,7 +10,7 @@ class Algorithm(object):
     def __init__(self, game_state: GameState):
         self.game_state = game_state
 
-    def move_rates(self) -> [(GameState.Move, np.ndarray)]:
+    def move_rates(self) -> [np.ndarray]:
         raise NotImplementedError
 
     def value(self, rate: Rate) -> np.ndarray:
@@ -21,7 +21,7 @@ class Algorithm(object):
 
         best_move = None
         best_rate = -math.inf
-        for move, rates in self.move_rates():
+        for move, rates in enumerate(self.move_rates()):
             rates = self.value(rates)
             if best_rate < rates[self.game_state.player]:
                 best_move = move

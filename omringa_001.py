@@ -32,8 +32,7 @@ args = argument_parser.parse_args()
 
 def random_game_state(game_state: GameState):
     for _ in range(random.randint(0, 40)):
-        moves = game_state.moves()
-        game_state.apply_move(random.choice(moves))
+        game_state.apply_move(random.randint(0, game_state.move_count() - 1))
     return game_state
 
 
@@ -140,10 +139,10 @@ with tf.Session() as session:
             feed_dict={
                 tf.get_collection('model/cost_function/predicted_move_rates')[0]:
                     [ugtsa_algorithm.value(move_rate)
-                     for _, move_rate in ugtsa_algorithm.move_rates()],
+                     for move_rate in ugtsa_algorithm.move_rates()],
                 tf.get_collection('model/cost_function/real_move_rates')[0]:
                     [ucb_algorithm.value(move_rate)
-                     for _, move_rate in ucb_algorithm.move_rates()],
+                     for move_rate in ucb_algorithm.move_rates()],
                 tf.get_collection('model/cost_function/empty_statistic_model')[0]:
                     empty_statistic_model,
                 tf.get_collection('model/cost_function/move_rate_model')[0]:
@@ -169,7 +168,7 @@ with tf.Session() as session:
                 ugtsa_algorithm.updated_update_model: results[5],
                 **{
                     move_rate: move_rate_gradient
-                    for ((_, move_rate), move_rate_gradient) in zip(
+                    for move_rate, move_rate_gradient in zip(
                         ugtsa_algorithm.move_rates(), results[0])
                 }
             })
