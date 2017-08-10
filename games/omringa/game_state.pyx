@@ -1,5 +1,3 @@
-# distutils: language = c++
-
 from games.omringa cimport game_state
 from libc.stdlib cimport rand
 from libcpp.vector cimport vector
@@ -32,7 +30,7 @@ cdef class GameState:
                 position.x = x
                 self.empty_positions.push_back(position)
 
-    cpdef int move_count(self) except *:
+    cpdef int move_count(self):
         if self.state == State.bet:
             return self.max_bet - self.min_bet
         elif self.state == State.nature:
@@ -40,7 +38,7 @@ cdef class GameState:
         else:
             return self.empty_positions.size()
 
-    cpdef Move get_move(self, int index) except *:
+    cpdef Move get_move(self, int index):
         cdef Move move
         move.state = self.state
         move.player = self.player
@@ -57,7 +55,7 @@ cdef class GameState:
             move.index = index
         return move
 
-    cpdef void apply_move(self, int index) except *:
+    cpdef void apply_move(self, int index):
         cdef Move move = self.get_move(index)
         self.move_history.push_back(move)
 
@@ -82,7 +80,7 @@ cdef class GameState:
             self.board[move.value[0]][move.value[1]] = move.player + 1
             self.player = move.player ^ 1
 
-    cpdef void undo_move(self) except *:
+    cpdef void undo_move(self):
         cdef Move move = self.move_history.back()
         self.move_history.pop_back()
 
@@ -101,10 +99,10 @@ cdef class GameState:
             self.empty_positions[move.index] = empty_position
             self.board[move.value[0]][move.value[1]] = 0
 
-    cpdef bool is_final(self) except *:
+    cpdef bool is_final(self):
         return self.empty_positions.empty()
 
-    cpdef int count_groups(self, int player) except *:
+    cpdef int count_groups(self, int player):
         player = player + 1
         cpdef int result = 0
         cpdef vector[Position] stack

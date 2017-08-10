@@ -1,5 +1,3 @@
-# distutils: language = c++
-
 from libc.stdlib cimport rand
 from libcpp.vector cimport vector
 from libcpp cimport bool
@@ -39,17 +37,17 @@ cdef class GameState:
     cdef vector[Move] move_history
 
 
-    cpdef int move_count(self) except *
+    cpdef int move_count(self)
 
-    cpdef Move get_move(self, int index) except *
+    cpdef Move get_move(self, int index)
 
-    cpdef void apply_move(self, int index) except *
+    cpdef void apply_move(self, int index)
 
-    cpdef void undo_move(self) except *
+    cpdef void undo_move(self)
 
-    cpdef bool is_final(self) except *
+    cpdef bool is_final(self)
 
-    cpdef int count_groups(self, int player) except *
+    cpdef int count_groups(self, int player)
 
     cpdef np.ndarray[np.float32_t, ndim=1] payoff(self)
 
