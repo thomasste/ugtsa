@@ -41,7 +41,7 @@ class Algorithm(algorithm.Algorithm):
 
     def _move_rate(
             self, parent_statistic: Statistic, child_statistic: Statistic) \
-            -> [Rate]:
+            -> Rate:
         raise NotImplementedError
 
     def _game_state_as_update(self, game_state: GameState) -> Update:
@@ -157,7 +157,8 @@ class Algorithm(algorithm.Algorithm):
             else:
                 if node.number_of_visits >= self.grow_factor \
                         and not workers[0].game_state.is_final():
-                    for move_index in range(workers[0].game_state.move_count()):
+                    for move_index in \
+                            range(workers[0].game_state.move_count()):
                         workers[0].game_state.apply_move(move_index)
                         empty_statistic += [self._empty_statistic(
                             workers[0].game_state)]

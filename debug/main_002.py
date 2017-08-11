@@ -1,4 +1,4 @@
-from algorithms.tensorflow_mcts.algorithm import Algorithm
+from algorithms.computation_graph_mcts.algorithm import Algorithm
 from model_builders.basic_model_builder.model_builder import ModelBuilder
 from games.omringa.game_state import GameState
 

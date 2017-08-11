@@ -1,7 +1,7 @@
 import numpy as np
 
 
-class GameState:
+class GameState(object):
     Move = int
     Payoff = np.ndarray
 
