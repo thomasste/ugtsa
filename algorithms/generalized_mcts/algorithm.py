@@ -23,7 +23,7 @@ class Algorithm(algorithm.Algorithm):
     Rate = object
 
     def __init__(self, game_state: GameState, worker_count: int,
-                 grow_factor: int):
+                 grow_factor: int, removed_root_moves: [int]):
         super().__init__(game_state)
 
         self.workers = [
@@ -35,6 +35,7 @@ class Algorithm(algorithm.Algorithm):
             for _ in range(worker_count)]
         self.tree = []
         self.grow_factor = grow_factor
+        self.removed_root_moves = removed_root_moves
 
     def _empty_statistic(self, game_state: [GameState]) -> [Statistic]:
         raise NotImplementedError
@@ -68,6 +69,12 @@ class Algorithm(algorithm.Algorithm):
 
             # make probabilities
             xs = [x[workers[0].game_state.player] for x in move_rates]
+
+            # remove moves
+            if node.parent is None:
+                for removed_root_move in self.removed_root_moves:
+                    xs[removed_root_move] = 0.
+
             xs = [x / sum(xs) for x in xs]
         else:
             xs = [1 / (node.children[1] - node.children[0])
