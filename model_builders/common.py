@@ -53,11 +53,14 @@ def bias_layer(signal, constant=0.):
     return signal + bias
 
 
-def dropout_layer(seed, signal, rate=0.5, training=False):
+def dropout_layer(seed, signal, keep_prob=0.5, training=False):
     s, seed = seed[:2], seed[2:]
     rand = stateless_random_uniform(tf.shape(signal), s)
-    mask = tf.to_float(rand > rate)
-    return seed, tf.cond(training, lambda: signal * mask, lambda: signal)
+    mask = tf.to_float(rand < keep_prob)
+    return seed, tf.cond(
+        training,
+        lambda: (signal * mask) / tf.sqrt(keep_prob),
+        lambda: signal)
 
 
 def lstm(signal, old_state, old_output):
