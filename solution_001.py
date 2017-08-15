@@ -66,7 +66,8 @@ with tf.Session(graph=graph) as session:
         ModelBuilder.transformations(computation_graph, graph)
 
     for i in range(args.number_of_iterations):
-        first_node = computation_graph.nodes_shift + len(computation_graph.nodes)
+        first_node = computation_graph.nodes_shift + \
+                     len(computation_graph.nodes)
         computation_graph.shift(first_node)
 
         gs = random_game_state(game_state)
