@@ -17,8 +17,7 @@ class ModelBuilder(model_builder.ModelBuilder):
             game_state_as_update_hidden_output_sizes,
             updated_statistic_lstm_state_sizes,
             updated_statistic_hidden_output_sizes,
-            updated_update_hidden_output_sizes,
-            cost_function_regularization_factor):
+            updated_update_hidden_output_sizes):
         super().__init__(
             player_count, worker_count, statistic_size, update_size,
             game_state_board_shape, game_state_statistic_size,
@@ -38,8 +37,6 @@ class ModelBuilder(model_builder.ModelBuilder):
             updated_statistic_hidden_output_sizes
         self.updated_update_hidden_output_sizes = \
             updated_update_hidden_output_sizes
-        self.cost_function_regularization_factor = \
-            cost_function_regularization_factor
 
     def _empty_statistic_transformation(
             self, seed, game_state_board, game_state_statistic):

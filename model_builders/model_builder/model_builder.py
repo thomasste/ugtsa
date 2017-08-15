@@ -1,3 +1,6 @@
+from computation_graphs.computation_graph.computation_graph import \
+    ComputationGraph
+
 import tensorflow as tf
 
 
@@ -263,3 +266,51 @@ class ModelBuilder(object):
         self.__build_game_state_as_update_graph()
         self.__build_updated_statistic_graph()
         self.__build_updated_update_graph()
+
+    @classmethod
+    def transformation(
+            cls, computation_graph: ComputationGraph, graph: tf.Graph,
+            name: str, inputs: [(str, bool)]) \
+            -> ComputationGraph.Transformation:
+        template = '{}/{{}}'.format(name)
+        template_0 = '{}/{{}}:0'.format(name)
+        template_g0 = '{}/{{}}_gradient:0'.format(name)
+
+        return computation_graph.transformation(
+            inputs=[
+                graph.get_tensor_by_name(template_0.format(input_name))
+                for input_name, _ in inputs],
+            input_gradients=[
+                graph.get_tensor_by_name(template_g0.format(input_name))
+                if is_differentiable else None
+                for input_name, is_differentiable in inputs],
+            output=graph.get_tensor_by_name(template_0.format('output')),
+            output_gradient=graph.get_tensor_by_name(
+                template_g0.format('output')),
+            model_gradients=graph.get_collection(
+                template.format('model_gradients')),
+            seed=graph.get_tensor_by_name(template_0.format('seed')),
+            training=graph.get_tensor_by_name('settings/training:0'))
+
+    @classmethod
+    def transformations(
+            cls, computation_graph: ComputationGraph, graph: tf.Graph) \
+            -> [ComputationGraph.Transformation]:
+        return [
+            cls.transformation(computation_graph, graph, name, inputs)
+            for name, inputs in [
+                ('empty_statistic', [
+                    ('game_state_board', False),
+                    ('game_state_statistic', False)]),
+                ('move_rate', [
+                    ('parent_statistic', True),
+                    ('child_statistic', True)]),
+                ('game_state_as_update', [
+                    ('update_statistic', False)]),
+                ('updated_statistic', [
+                    ('statistic', True),
+                    ('update_count', False),
+                    ('updates', True)]),
+                ('updated_update', [
+                    ('update', True),
+                    ('statistic', True)])]]

@@ -13,11 +13,12 @@ class ComputationGraph(computation_graph.ComputationGraph):
         'Transformation', 'inputs input_gradients '
                           'output output_gradient '
                           'model_gradients '
-                          'seed')
+                          'seed training')
     Node_ = recordclass('Node', 'transformation inputs output')
     Batch = recordclass('Batch', 'nodes_end seeds')
 
-    def __init__(self, session: tf.Session):
+    def __init__(self, training: bool, session: tf.Session):
+        super().__init__(training)
         self.session = session
         self.transformations = []
         self.nodes = []
@@ -27,7 +28,8 @@ class ComputationGraph(computation_graph.ComputationGraph):
     def transformation(
             self, inputs: [tf.Tensor], input_gradients: [tf.Tensor],
             output: tf.Tensor, output_gradient: tf.Tensor,
-            model_gradients: [tf.Tensor], seed: tf.Tensor) \
+            model_gradients: [tf.Tensor], seed: tf.Tensor,
+            training: tf.Tensor) \
             -> Transformation:
         self.transformations += [
             ComputationGraph.Transformation_(
@@ -36,7 +38,8 @@ class ComputationGraph(computation_graph.ComputationGraph):
                 output=output,
                 output_gradient=output_gradient,
                 model_gradients=model_gradients,
-                seed=seed)]
+                seed=seed,
+                training=training)]
         return len(self.transformations) - 1
 
     def matrix(self, matrix: np.ndarray) -> Node:
@@ -107,6 +110,9 @@ class ComputationGraph(computation_graph.ComputationGraph):
         seed_feed_dict = {
             transformation.seed: seed
             for transformation, seed in zip(self.transformations, seeds)}
+        training_feed_dict = {
+            transformation.training: self.training
+            for transformation in self.transformations}
         input_feed_dict = {
             input: value
             for transformation, task_inputs in zip(
@@ -118,6 +124,7 @@ class ComputationGraph(computation_graph.ComputationGraph):
             fetches=fetches,
             feed_dict={
                 **seed_feed_dict,
+                **training_feed_dict,
                 **input_feed_dict})
 
         for node_index in range(
@@ -129,13 +136,13 @@ class ComputationGraph(computation_graph.ComputationGraph):
                     results[node.transformation][1:]
 
     def value(self, node_index: Node) -> np.ndarray:
-        return self.nodes[node_index - self.nodes_shift]
+        return self.nodes[node_index - self.nodes_shift].output
 
-    def model_gradients(
-            self, first_node: Node, y_grads: [(Node, np.ndarray)]):
+    # TODO: limit number of iterations with first_node
+    def model_gradients(self, first_node: Node, y_grads):
         models_gradients = [
             [np.zeros(model_gradient.get_shape().as_list(),
-                      dtype=model_gradient.dtype)
+                      dtype=model_gradient.dtype.as_numpy_dtype)
              for model_gradient in transformation.model_gradients]
             for transformation in self.transformations
         ]
@@ -147,10 +154,10 @@ class ComputationGraph(computation_graph.ComputationGraph):
                      dtype=self.nodes[node_index].output.dtype)
             for node_index in range(
                 first_node - self.nodes_shift,
-                len(self.nodes) - self.nodes_shift - 1)
+                len(self.nodes) - self.nodes_shift)
         ]
 
-        for node_index, gradient in y_grads:
+        for node_index, gradient in y_grads.items():
             gradients[node_index - gradients_shift] = gradient
 
         batches = list(self.batches)
@@ -182,19 +189,27 @@ class ComputationGraph(computation_graph.ComputationGraph):
 
             model_gradients_fetches = {
                 transformation_index: transformation.model_gradients
-                for transformation_index, transformation in enumerate(
-                    self.transformations)
-                if tasks_inputs[transformation_index] != []}
+                for transformation_index, (transformation, task_inputs) in
+                enumerate(zip(self.transformations, tasks_inputs))
+                if task_inputs[0] != []}
             input_gradients_fetches = {
-                transformation_index: transformation.input_gradients
+                transformation_index: [
+                    input_gradient if input_gradient is not None else []
+                    for input_gradient in transformation.input_gradients]
                 for transformation_index, (transformation, task_inputs) in
                 enumerate(zip(self.transformations, tasks_inputs))
                 if task_inputs[0] != []}
 
             seed_feed_dict = {
                 transformation.seed: seed
-                for transformation, seed in zip(
-                    self.transformations, batches[-1].seeds)}
+                for transformation, seed, task_inputs in zip(
+                    self.transformations, batches[-1].seeds, tasks_inputs)
+                if task_inputs[0] != []}
+            training_feed_dict = {
+                transformation.training: self.training
+                for transformation, task_inputs in zip(
+                    self.transformations, tasks_inputs)
+                if task_inputs[0] != []}
             input_feed_dict = {
                 input: value
                 for transformation, task_inputs in zip(
@@ -205,7 +220,7 @@ class ComputationGraph(computation_graph.ComputationGraph):
                 transformation.output_gradient: task_output_gradient
                 for transformation, task_output_gradient in zip(
                     self.transformations, tasks_output_gradient)
-                if task_output_gradient[0] != []}
+                if task_output_gradient != []}
 
             results = self.session.run(
                 fetches={
@@ -213,11 +228,13 @@ class ComputationGraph(computation_graph.ComputationGraph):
                     'input_gradients': input_gradients_fetches},
                 feed_dict={
                     **seed_feed_dict,
+                    **training_feed_dict,
                     **input_feed_dict,
                     **output_gradient_feed_dict})
 
-            for model_gradients, result_model_gradients in zip(
-                    models_gradients, results['model_gradients']):
+            for transformation_index, result_model_gradients in \
+                    results['model_gradients'].items():
+                model_gradients = models_gradients[transformation_index]
                 for model_gradient, result_model_gradient in zip(
                         model_gradients, result_model_gradients):
                     model_gradient += result_model_gradient
@@ -226,24 +243,32 @@ class ComputationGraph(computation_graph.ComputationGraph):
                     batches[-2].nodes_end, batches[-1].nodes_end):
                 node = self.nodes[node_index - self.nodes_shift]
                 if node.transformation is not None:
-                    input_gradient = \
-                        results['input_gradients'][transformation][0]
-                    results['input_gradients'][transformation] = \
-                        results['input_gradients'][transformation][1:]
-                    for node_input in node.inputs:
-                        if type(node_input) == list:
-                            for node_input_ in node_input:
-                                node_input_length = \
-                                    self.nodes[node_input_].output.shape[0]
-                                if node_input_ - gradients_shift >= 0:
-                                    gradients[node_input_ - gradients_shift] \
-                                        += input_gradient[:node_input_length]
-                                input_gradient = \
-                                    input_gradient[node_input_length:]
-                        else:
-                            if node_input - gradients_shift >= 0:
-                                gradients[node_input - gradients_shift] += \
-                                    input_gradient
+                    transformation = self.transformations[node.transformation]
+                    transformation_results = \
+                        results['input_gradients'][node.transformation]
+                    for input_index, \
+                        (node_input, transformation_input_gradient) in \
+                            enumerate(zip(
+                                node.inputs, transformation.input_gradients)):
+                        if transformation_input_gradient is not None:
+                            input_gradient = \
+                                transformation_results[input_index][0]
+                            transformation_results[input_index] = \
+                                transformation_results[input_index][1:]
+
+                            if type(node_input) == list:
+                                for node_input_ in node_input:
+                                    node_input_length = \
+                                        self.nodes[node_input_].output.shape[0]
+                                    if node_input_ - gradients_shift >= 0:
+                                        gradients[node_input_ - gradients_shift] \
+                                            += input_gradient[:node_input_length]
+                                    input_gradient = \
+                                        input_gradient[node_input_length:]
+                            else:
+                                if node_input - gradients_shift >= 0:
+                                    gradients[node_input - gradients_shift] += \
+                                        input_gradient
 
             batches.pop()
 

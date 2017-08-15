@@ -13,12 +13,17 @@ class Algorithm(algorithm.Algorithm):
     Transformation = ComputationGraph.Transformation
 
     def __init__(
-            self, computation_graph: ComputationGraph,
+            self, game_state: GameState, worker_count: int, grow_factor: int,
+            removed_root_moves: [int],
+            computation_graph: ComputationGraph,
             empty_statistic: Transformation,
             move_rate: Transformation,
             game_state_as_update: Transformation,
             updated_statistic: Transformation,
             updated_update: Transformation):
+        super().__init__(
+            game_state, worker_count, grow_factor, removed_root_moves)
+
         self.computation_graph = computation_graph
         self.empty_statistic = empty_statistic
         self.move_rate = move_rate
