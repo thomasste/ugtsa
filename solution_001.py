@@ -9,7 +9,6 @@ from model_builders.model_builder.model_builder import ModelBuilder
 import argparse
 import logging
 import numpy as np
-import random
 import sys
 import tensorflow as tf
 import time
@@ -29,21 +28,6 @@ argument_parser.add_argument('ucb_strength', type=int)
 argument_parser.add_argument('ugtsa_worker_count', type=int)
 argument_parser.add_argument('ugtsa_strength', type=int)
 args = argument_parser.parse_args()
-
-
-def random_game_state(game_state: GameState):
-    game_state = deepcopy(game_state)
-
-    counter = 0
-    while not game_state.is_final():
-        game_state.apply_move(random.randint(0, game_state.move_count() - 1))
-        counter += 1
-
-    for _ in range(random.randint(0, counter)):
-        game_state.undo_move()
-
-    return game_state
-
 
 game_config = config['games'][args.game]
 
@@ -70,7 +54,7 @@ with tf.Session(graph=graph) as session:
                      len(computation_graph.nodes)
         computation_graph.shift(first_node)
 
-        gs = random_game_state(game_state)
+        gs = GameState.random_game_state(game_state)
         # gs = game_state
 
         ucb_begin = time.time()
