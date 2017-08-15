@@ -138,8 +138,25 @@ class ComputationGraph(computation_graph.ComputationGraph):
     def value(self, node_index: Node) -> np.ndarray:
         return self.nodes[node_index - self.nodes_shift].output
 
+    def __propagate_input_gradient(
+            self, node_input, input_gradient, gradients, gradients_shift):
+        if type(node_input) == list:
+            for node_input_ in node_input:
+                node = self.nodes[node_input_ - self.nodes_shift]
+                length = node.output.shape[0]
+
+                if node_input_ - gradients_shift >= 0:
+                    gradients[node_input_ - gradients_shift] \
+                        += input_gradient[:length]
+
+                input_gradient = input_gradient[length:]
+        else:
+            if node_input - gradients_shift >= 0:
+                gradients[node_input - gradients_shift] += input_gradient
+
     # TODO: limit number of iterations with first_node
     def model_gradients(self, first_node: Node, y_grads):
+        # TODO: collect model gradients inside tensorflow
         models_gradients = [
             [np.zeros(model_gradient.get_shape().as_list(),
                       dtype=model_gradient.dtype.as_numpy_dtype)
@@ -150,19 +167,18 @@ class ComputationGraph(computation_graph.ComputationGraph):
         gradients_shift = first_node
 
         gradients = [
-            np.zeros(self.nodes[node_index].output.shape,
-                     dtype=self.nodes[node_index].output.dtype)
+            np.zeros(
+                shape=self.nodes[node_index - self.nodes_shift].output.shape,
+                dtype=self.nodes[node_index - self.nodes_shift].output.dtype)
             for node_index in range(
-                first_node - self.nodes_shift,
-                len(self.nodes) - self.nodes_shift)
-        ]
+                first_node, self.nodes_shift + len(self.nodes))]
 
         for node_index, gradient in y_grads.items():
             gradients[node_index - gradients_shift] = gradient
 
         batches = list(self.batches)
 
-        while len(batches) > 1:
+        while len(batches) > 1 and first_node < batches[-1].nodes_end:
             tasks_inputs = [
                 [[] for _ in transformation.inputs]
                 for transformation in self.transformations]
@@ -232,44 +248,43 @@ class ComputationGraph(computation_graph.ComputationGraph):
                     **input_feed_dict,
                     **output_gradient_feed_dict})
 
-            for transformation_index, result_model_gradients in \
+            for transformation_index, transformation_model_gradients in \
                     results['model_gradients'].items():
                 model_gradients = models_gradients[transformation_index]
-                for model_gradient, result_model_gradient in zip(
-                        model_gradients, result_model_gradients):
-                    model_gradient += result_model_gradient
+                for model_gradient, transformation_model_gradient in zip(
+                        model_gradients, transformation_model_gradients):
+                    model_gradient += transformation_model_gradient
 
             for node_index in range(
                     batches[-2].nodes_end, batches[-1].nodes_end):
                 node = self.nodes[node_index - self.nodes_shift]
-                if node.transformation is not None:
-                    transformation = self.transformations[node.transformation]
-                    transformation_results = \
-                        results['input_gradients'][node.transformation]
-                    for input_index, \
-                        (node_input, transformation_input_gradient) in \
-                            enumerate(zip(
-                                node.inputs, transformation.input_gradients)):
-                        if transformation_input_gradient is not None:
-                            input_gradient = \
-                                transformation_results[input_index][0]
-                            transformation_results[input_index] = \
-                                transformation_results[input_index][1:]
 
-                            if type(node_input) == list:
-                                for node_input_ in node_input:
-                                    node_input_length = \
-                                        self.nodes[node_input_].output.shape[0]
-                                    if node_input_ - gradients_shift >= 0:
-                                        gradients[node_input_ - gradients_shift] \
-                                            += input_gradient[:node_input_length]
-                                    input_gradient = \
-                                        input_gradient[node_input_length:]
-                            else:
-                                if node_input - gradients_shift >= 0:
-                                    gradients[node_input - gradients_shift] += \
-                                        input_gradient
+                if node.transformation is not None:
+                    transformation = \
+                        self.transformations[node.transformation]
+                    transformation_input_gradients = \
+                        results['input_gradients'][node.transformation]
+
+                    for input_index, node_input in enumerate(node.inputs):
+                        if transformation_input_gradients[input_index] != []:
+                            input_gradient = \
+                                transformation_input_gradients[input_index][0]
+                            transformation_input_gradients[input_index] = \
+                                transformation_input_gradients[input_index][1:]
+                            self.__propagate_input_gradient(
+                                node_input, input_gradient, gradients,
+                                gradients_shift)
 
             batches.pop()
 
         return models_gradients
+
+    def shift(self, nodes_shift):
+        first_batch_index = next(
+            i
+            for i, batch in enumerate(self.batches)
+            if nodes_shift <= batch.nodes_end)
+        self.batches = self.batches[first_batch_index:]
+
+        self.nodes = self.nodes[nodes_shift - self.nodes_shift:]
+        self.nodes_shift = nodes_shift

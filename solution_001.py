@@ -2,7 +2,7 @@ from config import config
 from games.game.game_state import GameState
 from copy import deepcopy
 from algorithms.ucb_mcts.algorithm import Algorithm as UCBAlgorithm
-from computation_graphs.continous_computation_graph.computation_graph import \
+from computation_graphs.shiftable_computation_graph.computation_graph import \
     ComputationGraph
 from model_builders.model_builder.model_builder import ModelBuilder
 
@@ -66,6 +66,9 @@ with tf.Session(graph=graph) as session:
         ModelBuilder.transformations(computation_graph, graph)
 
     for i in range(args.number_of_iterations):
+        first_node = computation_graph.nodes_shift + len(computation_graph.nodes)
+        computation_graph.shift(first_node)
+
         gs = random_game_state(game_state)
         # gs = game_state
 
@@ -101,7 +104,7 @@ with tf.Session(graph=graph) as session:
         # TODO: cost function
         gradients_begin = time.time()
         gradients = computation_graph.model_gradients(
-            first_node=0,
+            first_node=first_node,
             y_grads={
                 ugtsa_move_rate:
                     ugtsa_algorithm.value(ugtsa_move_rate) -
