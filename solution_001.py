@@ -27,6 +27,7 @@ argument_parser.add_argument('ucb_worker_count', type=int)
 argument_parser.add_argument('ucb_strength', type=int)
 argument_parser.add_argument('ugtsa_worker_count', type=int)
 argument_parser.add_argument('ugtsa_strength', type=int)
+argument_parser.add_argument('--debug', action='store_true')
 args = argument_parser.parse_args()
 
 game_config = config['games'][args.game]
@@ -41,7 +42,11 @@ model_builder.worker_count = args.ugtsa_worker_count
 with graph.as_default():
     model_builder.build()
 
-with tf.Session(graph=graph) as session:
+config = tf.ConfigProto()
+if args.debug == True:
+    config.log_device_placement=True
+
+with tf.Session(config=config, graph=graph) as session:
     session.run(tf.global_variables_initializer())
 
     computation_graph = ComputationGraph(True, session)
@@ -103,6 +108,8 @@ with tf.Session(graph=graph) as session:
         # debug
         print([x.number_of_visits for x in ucb_algorithm.tree[:20]])
         print([x.number_of_visits for x in ugtsa_algorithm.tree[:20]])
-        # print(ucb_algorithm.tree[:20])
-        # print(ugtsa_algorithm.tree[:20])
-        # print(gradients)
+
+        if args.debug:
+            print(ucb_algorithm.tree[:20])
+            print(ugtsa_algorithm.tree[:20])
+            print(gradients)
