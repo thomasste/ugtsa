@@ -22,12 +22,16 @@ class ComputationGraph(computation_graph.ComputationGraph):
     def transformation(
             self, inputs: [tf.Tensor], input_gradients: [tf.Tensor],
             output: tf.Tensor, output_gradient: tf.Tensor,
-            model_gradients: [tf.Tensor], seed: tf.Tensor) \
+            model_gradient_accumulators: [tf.Tensor],
+            zero_model_gradient_accumulators,
+            update_model_gradient_accumulators,
+            seed: tf.Tensor, training: tf.Tensor) \
             -> Transformation:
         with self.lock:
             return self.computation_graph.transformation(
                 inputs, input_gradients, output, output_gradient,
-                model_gradients, seed)
+                model_gradient_accumulators, zero_model_gradient_accumulators,
+                update_model_gradient_accumulators, seed, training)
 
     def matrix(self, matrix: np.ndarray) -> Node:
         with self.lock:

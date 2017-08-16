@@ -43,8 +43,8 @@ with graph.as_default():
     model_builder.build()
 
 config = tf.ConfigProto()
-if args.debug == True:
-    config.log_device_placement=True
+if args.debug:
+    config.log_device_placement = True
 
 with tf.Session(config=config, graph=graph) as session:
     session.run(tf.global_variables_initializer())

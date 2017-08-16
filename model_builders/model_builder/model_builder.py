@@ -36,6 +36,37 @@ class ModelBuilder(object):
     def _updated_update_transformation(self, seed, update, statistic):
         raise NotImplementedError
 
+    def __model_gradients(
+            self, variable_scope: tf.VariableScope,
+            transformation_variable_scope: tf.VariableScope,
+            output: tf.Tensor, output_gradient: tf.Tensor):
+        trainable_variables = tf.get_collection(
+                tf.GraphKeys.TRAINABLE_VARIABLES,
+                transformation_variable_scope.name)
+
+        gradients = tf.gradients(
+            output, trainable_variables, grad_ys=output_gradient)
+
+        for gradient in gradients:
+            gradient_accumulator = tf.Variable(
+                tf.zeros(gradient.get_shape(), gradient.dtype))
+
+            tf.add_to_collection(
+                '{}/model_gradients'.format(variable_scope.name),
+                gradient)
+            tf.add_to_collection(
+                '{}/model_gradient_accumulators'.format(variable_scope.name),
+                gradient_accumulator)
+            tf.add_to_collection(
+                '{}/update_model_gradient_accumulators'.format(
+                    variable_scope.name),
+                tf.assign_add(gradient_accumulator, gradient).op)
+
+        tf.variables_initializer(
+            tf.get_collection(
+                '{}/model_gradient_accumulators'.format(variable_scope.name)),
+            'zero_model_gradient_accumulators')
+
     def __build_empty_statistic_graph(self):
         print('empty_statistic')
         with tf.variable_scope('empty_statistic') as variable_scope:
@@ -66,16 +97,9 @@ class ModelBuilder(object):
                 [None, self.statistic_size],
                 'output_gradient')
 
-            model_gradients = tf.gradients(
-                output, tf.get_collection(
-                    tf.GraphKeys.TRAINABLE_VARIABLES,
-                    transformation_variable_scope.name),
-                grad_ys=output_gradient)
-
-            for gradient in model_gradients:
-                tf.add_to_collection(
-                    '{}/model_gradients'.format(variable_scope.name),
-                    gradient)
+            self.__model_gradients(
+                variable_scope, transformation_variable_scope, output,
+                output_gradient)
 
     def __build_move_rate_graph(self):
         print('move_rate')
@@ -114,16 +138,9 @@ class ModelBuilder(object):
             tf.identity(
                 child_statistic_gradient, 'child_statistic_gradient')
 
-            model_gradients = tf.gradients(
-                output, tf.get_collection(
-                    tf.GraphKeys.TRAINABLE_VARIABLES,
-                    transformation_variable_scope.name),
-                grad_ys=output_gradient)
-
-            for gradient in model_gradients:
-                tf.add_to_collection(
-                    '{}/model_gradients'.format(variable_scope.name),
-                    gradient)
+            self.__model_gradients(
+                variable_scope, transformation_variable_scope, output,
+                output_gradient)
 
     def __build_game_state_as_update_graph(self):
         print('game_state_as_update')
@@ -154,16 +171,9 @@ class ModelBuilder(object):
             tf.identity(
                 update_statistic_gradient, 'update_statistic_gradient')
 
-            model_gradients = tf.gradients(
-                output, tf.get_collection(
-                    tf.GraphKeys.TRAINABLE_VARIABLES,
-                    transformation_variable_scope.name),
-                grad_ys=output_gradient)
-
-            for gradient in model_gradients:
-                tf.add_to_collection(
-                    '{}/model_gradients'.format(variable_scope.name),
-                    gradient)
+            self.__model_gradients(
+                variable_scope, transformation_variable_scope, output,
+                output_gradient)
 
     def __build_updated_statistic_graph(self):
         print('updated_statistic')
@@ -202,16 +212,9 @@ class ModelBuilder(object):
             tf.identity(statistic_gradient, 'statistic_gradient')
             tf.identity(updates_gradient, 'updates_gradient')
 
-            model_gradients = tf.gradients(
-                output, tf.get_collection(
-                    tf.GraphKeys.TRAINABLE_VARIABLES,
-                    transformation_variable_scope.name),
-                grad_ys=output_gradient)
-
-            for gradient in model_gradients:
-                tf.add_to_collection(
-                    '{}/model_gradients'.format(variable_scope.name),
-                    gradient)
+            self.__model_gradients(
+                variable_scope, transformation_variable_scope, output,
+                output_gradient)
 
     def __build_updated_update_graph(self):
         print('updated_update')
@@ -246,16 +249,9 @@ class ModelBuilder(object):
             tf.identity(statistic_gradient, 'statistic_gradient')
             tf.identity(update_gradient, 'update_gradient')
 
-            model_gradients = tf.gradients(
-                output, tf.get_collection(
-                    tf.GraphKeys.TRAINABLE_VARIABLES,
-                    transformation_variable_scope.name),
-                grad_ys=output_gradient)
-
-            for gradient in model_gradients:
-                tf.add_to_collection(
-                    '{}/model_gradients'.format(variable_scope.name),
-                    gradient)
+            self.__model_gradients(
+                variable_scope, transformation_variable_scope, output,
+                output_gradient)
 
     def build(self):
         with tf.variable_scope('settings'):
@@ -287,8 +283,12 @@ class ModelBuilder(object):
             output=graph.get_tensor_by_name(template_0.format('output')),
             output_gradient=graph.get_tensor_by_name(
                 template_g0.format('output')),
-            model_gradients=graph.get_collection(
-                template.format('model_gradients')),
+            model_gradient_accumulators=graph.get_collection(
+                template.format('model_gradient_accumulators')),
+            zero_model_gradient_accumulators=graph.get_operation_by_name(
+                template.format('zero_model_gradient_accumulators')),
+            update_model_gradient_accumulators=graph.get_collection(
+                template.format('update_model_gradient_accumulators')),
             seed=graph.get_tensor_by_name(template_0.format('seed')),
             training=graph.get_tensor_by_name('settings/training:0'))
 

@@ -9,11 +9,15 @@ class ComputationGraph(object):
     def __init__(self, training: bool):
         self.training = training
 
+    # zero_model_gradient_accumulators: Union tf.Operation [tf.Operation]
+    # update_model_gradient_accumulators: Union tf.Operation [tf.Operation]
     def transformation(
             self, inputs: [tf.Tensor], input_gradients: [tf.Tensor],
             output: tf.Tensor, output_gradient: tf.Tensor,
-            model_gradients: [tf.Tensor], seed: tf.Tensor,
-            training: tf.Tensor) \
+            model_gradient_accumulators: [tf.Tensor],
+            zero_model_gradient_accumulators,
+            update_model_gradient_accumulators,
+            seed: tf.Tensor, training: tf.Tensor) \
             -> Transformation:
         raise NotImplementedError
 
