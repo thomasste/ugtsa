@@ -10,7 +10,7 @@ class Algorithm(object):
     def __init__(self, game_state: GameState):
         self.game_state = game_state
 
-    def move_rates(self) -> [np.ndarray]:
+    def move_rates(self) -> [Rate]:
         raise NotImplementedError
 
     def value(self, rate: Rate) -> np.ndarray:

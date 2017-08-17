@@ -59,9 +59,12 @@ class ComputationGraph(computation_graph.ComputationGraph):
                 for thread in self.threads.values():
                     if thread.is_waiting:
                         thread.semaphore.release()
+                        thread.is_waiting = False
             else:
-                thread = self.threads[threading.get_ident()]
-                thread.is_waiting = True
+                thread = ComputationGraph.Thread(
+                    semaphore=Semaphore(value=0),
+                    is_waiting=True)
+                self.threads[threading.get_ident()] = thread
                 semaphore = thread.semaphore
 
         if semaphore is not None:
@@ -74,7 +77,7 @@ class ComputationGraph(computation_graph.ComputationGraph):
     # : Map Transformation [np.ndarray]
     def model_gradients(self, first_node: Node, y_grads: [(Node, np.ndarray)]):
         with self.lock:
-            return self.model_gradients(first_node, y_grads)
+            return self.computation_graph.model_gradients(first_node, y_grads)
 
     def add_thread(self) -> None:
         with self.lock:
@@ -89,3 +92,4 @@ class ComputationGraph(computation_graph.ComputationGraph):
                 for thread in self.threads.values():
                     if thread.is_waiting:
                         thread.semaphore.release()
+                        thread.is_waiting = False
