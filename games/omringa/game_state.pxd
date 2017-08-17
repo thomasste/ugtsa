@@ -56,3 +56,5 @@ cdef class GameState:
     cpdef np.ndarray[np.float32_t, ndim=1] random_playout_payoff(self)
 
     cpdef GameState __deepcopy__(self, memodict)
+
+    cpdef np.ndarray[np.float32_t, ndim=1] get_bets(self)

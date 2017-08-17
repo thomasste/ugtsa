@@ -2,3 +2,7 @@ __pycache__
 .idea
 models
 logs
+build
+*.cpp
+*.so
+

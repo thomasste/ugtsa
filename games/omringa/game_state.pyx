@@ -196,3 +196,6 @@ cdef class GameState:
         game_state.empty_positions = vector[Position](self.empty_positions)
         game_state.move_history = vector[Move](self.move_history)
         return game_state
+
+    cpdef np.ndarray[np.float32_t, ndim=1] get_bets(self):
+        return np.array([self.bets[0], self.bets[1]], dtype=np.float32)

@@ -12,8 +12,10 @@ class Algorithm(algorithm.Algorithm):
 
     def __init__(
             self, game_state: GameState, worker_count: int,
-            grow_factor: int, exploration_factor: int):
-        super().__init__(game_state, worker_count, grow_factor)
+            grow_factor: int, removed_root_moves: [int],
+            exploration_factor: int):
+        super().__init__(
+            game_state, worker_count, grow_factor, removed_root_moves)
 
         self.exploration_factor = exploration_factor
 

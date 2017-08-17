@@ -1,129 +1,27 @@
 from model_builders.model_builder import model_builder
-from tensorflow.contrib.stateless import stateless_random_uniform
+from model_builders.common import *
 
-import math
-import numpy as np
 import tensorflow as tf
-
-
-def xavier_initializer(shape, input_size, output_size):
-    stddev = math.sqrt(2 / input_size + output_size)
-    return tf.truncated_normal(shape, stddev=stddev)
-
-
-def convolutional_layer(model, signal, filter_shape):
-    filter_shape = [filter_shape[0], filter_shape[1],
-                    signal.get_shape()[3].value, filter_shape[2]]
-    filter = model.get_variable(
-        xavier_initializer(
-            filter_shape,
-            filter_shape[0] * filter_shape[1] * filter_shape[2],
-            filter_shape[0] * filter_shape[1] * filter_shape[3]),
-        name='filter')
-    signal = tf.nn.conv2d(
-        input=signal, filter=filter, strides=[1, 1, 1, 1], padding='SAME')
-    return signal
-
-
-def batch_normalization_layer(model, signal):
-    batch_mean, batch_variance = tf.nn.moments(
-        signal, list(range(signal.get_shape().ndims - 1)))
-
-    gamma = model.get_variable(tf.ones(batch_mean.get_shape()), name='gamma')
-    beta = model.get_variable(tf.zeros(batch_mean.get_shape()), name='beta')
-    signal = signal - batch_mean
-    signal /= tf.sqrt(batch_variance + 0.0001)
-    signal = gamma * signal + beta
-    return signal
-
-
-def activation_layer(signal):
-    return tf.sigmoid(signal)
-
-
-def max_pool_layer(signal, window_shape):
-    return tf.nn.max_pool(
-        signal, ksize=window_shape, strides=window_shape, padding='SAME')
-
-
-def dense_layer(model, signal, output_size, name='layer', reuse=False):
-    layer_shape = (signal.get_shape()[1].value, output_size)
-    layer = model.get_variable(
-        xavier_initializer(layer_shape, layer_shape[0], layer_shape[1]),
-        name=name, reuse=reuse)
-    signal = tf.matmul(signal, layer)
-    return signal
-
-
-def bias_layer(model, signal, constant=0., name='bias', reuse=False):
-    bias = model.get_variable(
-        tf.constant(constant, tf.float32,
-                    shape=(signal.get_shape()[1].value,)),
-        name=name, reuse=reuse)
-    return signal + bias
-
-
-def dropout_layer(model, signal, rate=0.5, training=False):
-    seed = tf.concat([model.get_seed(), model.get_seed()], axis=0)
-    rand = stateless_random_uniform(tf.shape(signal), seed)
-    mask = tf.to_float(rand > rate)
-    return tf.cond(training, lambda: signal * mask, lambda: signal)
-
-
-def lstm(model, signal, old_state, old_output):
-    state_size = old_state.get_shape()[1].value
-
-    f = tf.sigmoid(
-        bias_layer(
-            model,
-            dense_layer(model, signal, state_size, name='W_f', reuse=True) +
-            dense_layer(model, old_output, state_size, name='U_f',
-                        reuse=True),
-            name='B_f', constant=1., reuse=True))
-    i = tf.sigmoid(
-        bias_layer(
-            model,
-            dense_layer(model, signal, state_size, name='W_i', reuse=True) +
-            dense_layer(model, old_output, state_size, name='U_i',
-                        reuse=True),
-            name='B_i', reuse=True))
-    o = tf.sigmoid(
-        bias_layer(
-            model,
-            dense_layer(model, signal, state_size, name='W_o', reuse=True) +
-            dense_layer(model, old_output, state_size, name='U_o',
-                        reuse=True),
-            name='B_o', reuse=True))
-    state = f * old_state + i * tf.tanh(
-        bias_layer(
-            model,
-            dense_layer(model, signal, state_size, name='W_state',
-                        reuse=True) +
-            dense_layer(model, old_output, state_size, name='U_state',
-                        reuse=True),
-            name='B_state', reuse=True))
-    output = o * tf.tanh(state)
-
-    return state, output
+import numpy as np
 
 
 class ModelBuilder(model_builder.ModelBuilder):
-    def __init__(self, variable_scope, player_count, worker_count,
-                 statistic_size, update_size, game_state_board_shape,
-                 game_state_statistic_size, update_statistic_size,
-                 empty_statistic_filter_shapes,
-                 empty_statistic_window_shapes,
-                 empty_statistic_hidden_output_sizes,
-                 move_rate_hidden_output_sizes,
-                 game_state_as_update_hidden_output_sizes,
-                 updated_statistic_lstm_state_sizes,
-                 updated_statistic_hidden_output_sizes,
-                 updated_update_hidden_output_sizes,
-                 cost_function_regularization_factor):
+    def __init__(
+            self, player_count, worker_count, statistic_size, update_size,
+            game_state_board_shape, game_state_statistic_size,
+            update_statistic_size, seed_size,
+            empty_statistic_filter_shapes,
+            empty_statistic_window_shapes,
+            empty_statistic_hidden_output_sizes,
+            move_rate_hidden_output_sizes,
+            game_state_as_update_hidden_output_sizes,
+            updated_statistic_lstm_state_sizes,
+            updated_statistic_hidden_output_sizes,
+            updated_update_hidden_output_sizes):
         super().__init__(
-            variable_scope, player_count, worker_count,
-            statistic_size, update_size, game_state_board_shape,
-            game_state_statistic_size, update_statistic_size)
+            player_count, worker_count, statistic_size, update_size,
+            game_state_board_shape, game_state_statistic_size,
+            update_statistic_size, seed_size)
 
         self.empty_statistic_filter_shapes = empty_statistic_filter_shapes
         self.empty_statistic_window_shapes = empty_statistic_window_shapes
@@ -139,11 +37,9 @@ class ModelBuilder(model_builder.ModelBuilder):
             updated_statistic_hidden_output_sizes
         self.updated_update_hidden_output_sizes = \
             updated_update_hidden_output_sizes
-        self.cost_function_regularization_factor = \
-            cost_function_regularization_factor
 
     def _empty_statistic_transformation(
-            self, model, game_state_board, game_state_statistic):
+            self, seed, game_state_board, game_state_statistic):
         signal = tf.expand_dims(game_state_board, -1)
         print(signal.get_shape())
 
@@ -151,8 +47,8 @@ class ModelBuilder(model_builder.ModelBuilder):
                 enumerate(zip(self.empty_statistic_filter_shapes,
                               self.empty_statistic_window_shapes)):
             with tf.variable_scope('convolutional_layer_{}'.format(idx)):
-                signal = convolutional_layer(model, signal, filter_shape)
-                signal = batch_normalization_layer(model, signal)
+                signal = convolutional_layer(signal, filter_shape)
+                signal = batch_normalization_layer(signal)
                 signal = activation_layer(signal)
                 print(signal.get_shape())
                 signal = max_pool_layer(signal, window_shape)
@@ -169,36 +65,38 @@ class ModelBuilder(model_builder.ModelBuilder):
                 self.empty_statistic_hidden_output_sizes +
                 [self.statistic_size]):
             with tf.variable_scope('dense_layer_{}'.format(idx)):
-                signal = dense_layer(model, signal, output_size)
-                signal = bias_layer(model, signal)
+                signal = dense_layer(signal, output_size)
+                signal = bias_layer(signal)
                 signal = activation_layer(signal)
-                signal = dropout_layer(model, signal, training=self.training)
+                seed, signal = dropout_layer(
+                    seed, signal, training=self.training)
                 print(signal.get_shape())
 
         return signal
 
     def _move_rate_transformation(
-            self, model, parent_statistic, child_statistic):
+            self, seed, parent_statistic, child_statistic):
         signal = tf.concat([parent_statistic, child_statistic], axis=1)
         print(signal.get_shape())
 
         for idx, output_size in enumerate(
                 self.move_rate_hidden_output_sizes):
             with tf.variable_scope('dense_layer_{}'.format(idx)):
-                signal = dense_layer(model, signal, output_size)
-                signal = bias_layer(model, signal)
+                signal = dense_layer(signal, output_size)
+                signal = bias_layer(signal)
                 signal = activation_layer(signal)
-                signal = dropout_layer(model, signal, training=self.training)
+                seed, signal = dropout_layer(
+                    seed, signal, training=self.training)
                 print(signal.get_shape())
 
-        signal = dense_layer(model, signal, self.player_count)
-        signal = bias_layer(model, signal)
+        signal = dense_layer(signal, self.player_count)
+        signal = bias_layer(signal)
         signal = tf.nn.softmax(signal)
         print(signal.get_shape())
 
         return signal
 
-    def _game_state_as_update_transformation(self, model, update_statistic):
+    def _game_state_as_update_transformation(self, seed, update_statistic):
         signal = update_statistic
         print(signal.get_shape())
 
@@ -206,38 +104,45 @@ class ModelBuilder(model_builder.ModelBuilder):
                 self.game_state_as_update_hidden_output_sizes +
                 [self.update_size]):
             with tf.variable_scope('dense_layer_{}'.format(idx)):
-                signal = dense_layer(model, signal, output_size)
-                signal = bias_layer(model, signal)
+                signal = dense_layer(signal, output_size)
+                signal = bias_layer(signal)
                 signal = activation_layer(signal)
-                signal = dropout_layer(model, signal, training=self.training)
+                seed, signal = dropout_layer(
+                    seed, signal, training=self.training)
                 print(signal.get_shape())
 
         return signal
 
     def _updated_statistic_transformation(
-            self, model, statistic, update_count, updates):
+            self, seed, statistic, update_count, updates):
         inputs = [
             updates[:, i*self.update_size: (i+1)*self.update_size]
             for i in range(self.worker_count)]
 
-        for idx, state_size in enumerate(
+        for index, state_size in enumerate(
                 self.updated_statistic_lstm_state_sizes):
-            with tf.variable_scope('lstm_layer_{}'.format(idx)):
-                states = [tf.tile(model.get_variable(
-                           tf.zeros((1, state_size)),
-                           name='empty_state'), [tf.shape(updates)[0], 1])]
-                outputs = [tf.tile(model.get_variable(
-                           tf.zeros((1, state_size)),
-                           name='empty_input'), [tf.shape(updates)[0], 1])]
+            with tf.variable_scope('lstm_layer_{}'.format(index)):
+                states = [tf.tile(tf.Variable(
+                    name='initial_state',
+                    initial_value=tf.zeros((1, state_size))),
+                    [tf.shape(updates)[0], 1])]
+                outputs = [tf.tile(tf.Variable(
+                    name='initial_output',
+                    initial_value=tf.zeros((1, state_size))),
+                    [tf.shape(updates)[0], 1])]
 
                 for i in range(self.worker_count):
-                    with tf.variable_scope('lstm'):
+                    with tf.variable_scope('lstm', reuse=(i > 0)):
                         modified_state, modified_output = lstm(
-                            model, inputs[i], states[-1], outputs[-1])
-                        states += [tf.where(update_count > i,
-                                            modified_state, states[-1])]
-                        outputs += [tf.where(update_count > i,
-                                             modified_output, outputs[-1])]
+                            inputs[i], states[-1], outputs[-1])
+                        print(
+                            inputs[i].get_shape(),
+                            modified_output.get_shape(),
+                            modified_output.get_shape())
+                        states += [tf.where(
+                            update_count > i, modified_state, states[-1])]
+                        outputs += [tf.where(
+                            update_count > i, modified_output, outputs[-1])]
 
                 inputs = outputs[1:]
 
@@ -250,15 +155,16 @@ class ModelBuilder(model_builder.ModelBuilder):
                 self.updated_statistic_hidden_output_sizes +
                 [self.statistic_size]):
             with tf.variable_scope('dense_layer_{}'.format(idx)):
-                signal = dense_layer(model, signal, output_size)
-                signal = bias_layer(model, signal)
+                signal = dense_layer(signal, output_size)
+                signal = bias_layer(signal)
                 signal = activation_layer(signal)
-                signal = dropout_layer(model, signal, training=self.training)
+                seed, signal = dropout_layer(
+                    seed, signal, training=self.training)
                 print(signal.get_shape())
 
         return signal
 
-    def _updated_update_transformation(self, model, update, statistic):
+    def _updated_update_transformation(self, seed, update, statistic):
         signal = tf.concat([update, statistic], axis=1)
         print(signal.get_shape())
 
@@ -266,25 +172,11 @@ class ModelBuilder(model_builder.ModelBuilder):
                 self.updated_update_hidden_output_sizes +
                 [self.update_size]):
             with tf.variable_scope('dense_layer_{}'.format(idx)):
-                signal = dense_layer(model, signal, output_size)
-                signal = bias_layer(model, signal)
+                signal = dense_layer(signal, output_size)
+                signal = bias_layer(signal)
                 signal = activation_layer(signal)
-                signal = dropout_layer(model, signal, training=self.training)
+                seed, signal = dropout_layer(
+                    seed, signal, training=self.training)
                 print(signal.get_shape())
 
         return signal
-
-    def _cost_function_transformation(
-            self, predicted_move_rates, real_move_rates,
-            empty_statistic_model, move_rate_model,
-            game_state_as_update_model, updated_statistic_model,
-            updated_update_model):
-        regularizer = tf.reduce_sum([
-            tf.nn.l2_loss(model)
-            for model in [empty_statistic_model, move_rate_model,
-                          game_state_as_update_model, updated_statistic_model,
-                          updated_update_model]])
-        loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
-            logits=predicted_move_rates, labels=real_move_rates))
-
-        return loss + self.cost_function_regularization_factor * regularizer

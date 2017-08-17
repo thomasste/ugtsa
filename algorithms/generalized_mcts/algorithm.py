@@ -23,7 +23,7 @@ class Algorithm(algorithm.Algorithm):
     Rate = object
 
     def __init__(self, game_state: GameState, worker_count: int,
-                 grow_factor: int):
+                 grow_factor: int, removed_root_moves: [int]):
         super().__init__(game_state)
 
         self.workers = [
@@ -35,13 +35,14 @@ class Algorithm(algorithm.Algorithm):
             for _ in range(worker_count)]
         self.tree = []
         self.grow_factor = grow_factor
+        self.removed_root_moves = removed_root_moves
 
     def _empty_statistic(self, game_state: [GameState]) -> [Statistic]:
         raise NotImplementedError
 
     def _move_rate(
             self, parent_statistic: Statistic, child_statistic: Statistic) \
-            -> [Rate]:
+            -> Rate:
         raise NotImplementedError
 
     def _game_state_as_update(self, game_state: GameState) -> Update:
@@ -68,6 +69,12 @@ class Algorithm(algorithm.Algorithm):
 
             # make probabilities
             xs = [x[workers[0].game_state.player] for x in move_rates]
+
+            # remove moves
+            if node.parent is None:
+                for removed_root_move in self.removed_root_moves:
+                    xs[removed_root_move] = 0.
+
             xs = [x / sum(xs) for x in xs]
         else:
             xs = [1 / (node.children[1] - node.children[0])
@@ -157,7 +164,8 @@ class Algorithm(algorithm.Algorithm):
             else:
                 if node.number_of_visits >= self.grow_factor \
                         and not workers[0].game_state.is_final():
-                    for move_index in range(workers[0].game_state.move_count()):
+                    for move_index in \
+                            range(workers[0].game_state.move_count()):
                         workers[0].game_state.apply_move(move_index)
                         empty_statistic += [self._empty_statistic(
                             workers[0].game_state)]
