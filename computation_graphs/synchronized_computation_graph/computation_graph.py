@@ -1,6 +1,6 @@
 from computation_graphs.computation_graph import computation_graph
 from recordclass import recordclass
-from threading import RLock, Semaphore
+from threading import Lock, Semaphore
 
 import tensorflow as tf
 import numpy as np
@@ -16,7 +16,7 @@ class ComputationGraph(computation_graph.ComputationGraph):
     def __init__(self, computation_graph: computation_graph.ComputationGraph):
         self.computation_graph = computation_graph
 
-        self.lock = RLock()
+        self.lock = Lock()
         self.threads = {}
 
     def transformation(
