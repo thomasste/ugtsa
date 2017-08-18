@@ -32,6 +32,7 @@ argument_parser.add_argument('ucb_grow_factor', type=int)
 argument_parser.add_argument('ugtsa_worker_count', type=int)
 argument_parser.add_argument('ugtsa_grow_factor', type=int)
 argument_parser.add_argument('--debug', action='store_true')
+argument_parser.add_argument('--use_initial_state', action='store_true')
 args = argument_parser.parse_args()
 
 game_config = config['games'][args.game]
@@ -101,6 +102,7 @@ class OracleThread(Thread):
 
     def run(self):
         logger.info('{}: oracle - started'.format(threading.get_ident()))
+        improve_counter = 0
 
         while True:
             with self.lock:
@@ -109,14 +111,17 @@ class OracleThread(Thread):
 
                 self.ucb_algorithm.improve()
                 self.ugtsa_algorithm.improve()
+                improve_counter += 1
 
         logger.info('{}: oracle - finished'.format(threading.get_ident()))
-        logger.info('{}: oracle - ucb {}'.format(
+        logger.info('{}: oracle - ucb {} {}'.format(
             threading.get_ident(),
+            improve_counter,
             [x.number_of_visits
              for x in self.ucb_algorithm.tree[:20]]))
-        logger.info('{}: oracle - ugtsa {}'.format(
+        logger.info('{}: oracle - ugtsa {} {}'.format(
             threading.get_ident(),
+            improve_counter,
             [x.number_of_visits
              for x in self.ugtsa_algorithm.tree[:20]]))
 
@@ -157,17 +162,21 @@ class TrainingThread(Thread):
     def run(self):
         logger.info('{}: training - started'.format(threading.get_ident()))
 
+        first_node = 0
         counter = 0
+        improve_counter = 0
         last_gradient_time = time.time()
 
         while True:
             self.algorithm.improve()
+            improve_counter += 1
 
             if time.time() - last_gradient_time > args.compute_gradient_each:
                 logger.info('{}: training - compute gradients'.format(
                     threading.get_ident()))
-                logger.info('{}: training - {}'.format(
+                logger.info('{}: training - {} {}'.format(
                     threading.get_ident(),
+                    improve_counter,
                     [x.number_of_visits
                      for x in self.algorithm.tree[:20]]))
 
@@ -198,13 +207,13 @@ class TrainingThread(Thread):
                 }
 
                 # calculate gradients
-                # TODO: first node
-                self.computation_graph.model_gradients(0, y_grads)
+                self.computation_graph.model_gradients(first_node, y_grads)
 
                 # apply gradients
                 self.thread_synchronizer.run_when_all_threads_join(
                     self.__apply_gradients)
                 last_gradient_time = time.time()
+                first_node = len(self.computation_graph.nodes)
 
                 logger.info('{}: training - compute_gradients end'.format(
                     threading.get_ident()))
@@ -227,9 +236,15 @@ class GameStateThread(Thread):
             thread_synchronizer: ThreadSynchronizer):
         super().__init__()
 
-        self.game_state = GameState.random_game_state(game_state)
-        if game_state.is_final():
-            game_state.undo_move()
+        if args.use_initial_state:
+            self.game_state = game_state
+        else:
+            self.game_state = GameState.random_game_state(game_state)
+
+        logger.info(self.game_state)
+
+        if self.game_state.is_final():
+            self.game_state.undo_move()
 
         self.oracle_thread = OracleThread(self.game_state, session)
         self.training_thread = TrainingThread(
@@ -250,8 +265,8 @@ with graph.as_default():
     model_builder.build()
 
 config = tf.ConfigProto()
-# if args.debug:
-#     config.log_device_placement = True
+if args.debug:
+    config.log_device_placement = True
 
 with tf.Session(config=config, graph=graph) as session:
     session.run(tf.global_variables_initializer())
