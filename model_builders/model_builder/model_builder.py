@@ -60,7 +60,7 @@ class ModelBuilder(object):
             tf.add_to_collection(
                 '{}/update_model_gradient_accumulators'.format(
                     variable_scope.name),
-                tf.assign_add(gradient_accumulator, gradient).op)
+                tf.assign_add(gradient_accumulator, gradient, use_locking=True).op)
 
         tf.variables_initializer(
             tf.get_collection(
