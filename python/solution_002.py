@@ -8,6 +8,7 @@ from computation_graphs.synchronized_computation_graph.computation_graph \
     import ComputationGraph as SynchronizedComputationGraph
 from config import config
 from copy import deepcopy
+from numpy.random import choice
 from model_builders.model_builder.model_builder import ModelBuilder
 from threading import Lock, Semaphore, Thread
 
@@ -29,6 +30,7 @@ argument_parser = argparse.ArgumentParser()
 argument_parser.add_argument('game', type=str)
 argument_parser.add_argument('ugtsa_algorithm', type=str)
 argument_parser.add_argument('model_builder', type=str)
+argument_parser.add_argument('number_of_iterations', type=int)
 argument_parser.add_argument('thread_count', type=int)
 argument_parser.add_argument('compute_gradient_each', type=int)
 argument_parser.add_argument('compute_gradient_times', type=int)
@@ -45,6 +47,11 @@ game_state = game_config['game_state']
 ugtsa_algorithm_config = game_config['algorithms'][args.ugtsa_algorithm]
 ugtsa_algorithm_class = ugtsa_algorithm_config['class']
 model_builder = ugtsa_algorithm_config['model_builders'][args.model_builder]
+
+graph = tf.Graph()
+model_builder.worker_count = args.ugtsa_worker_count
+with graph.as_default():
+    model_builder.build()
 
 
 class ThreadSynchronizer(object):
@@ -132,10 +139,11 @@ move_rate_dict = {}
 class TrainingThread(Thread):
     def __init__(
             self, ugtsa_algorithm, oracle_thread: OracleThread,
-            thread_synchronizer: ThreadSynchronizer):
+            thread_synchronizer: ThreadSynchronizer, removed_root_moves: [int]):
         super().__init__()
         self.ugtsa_algorithm = ugtsa_algorithm
         self.oracle_thread = oracle_thread
+        self.removed_root_moves = removed_root_moves
 
         self.thread_synchronizer = thread_synchronizer
 
@@ -146,24 +154,100 @@ class TrainingThread(Thread):
         logger.info('{}: training - apply gradients begin'.format(
             threading.get_ident()))
 
-        # TODO: cost function
-        # TODO: decrease ucb impact
-        y_grads = {
-            move_rate: ugtsa_move_rate - oracle_ucb_move_rate
-            for move_rate, (
+        gradients_begin = time.time()
+
+        # zero gradient accumulators
+        for name in [
+                'empty_statistic',
+                'move_rate',
+                'game_state_as_update',
+                'updated_statistic',
+                'updated_update',
+                'cost_function']:
+            session.run(graph.get_operation_by_name(
+                '{}/zero_model_gradient_accumulators'.format(name)))
+
+        if args.debug:
+            for name in [
+                    'empty_statistic',
+                    'move_rate',
+                    'game_state_as_update',
+                    'updated_statistic',
+                    'updated_update',
+                    'cost_function']:
+                trainable_variables = graph.get_collection(
+                    tf.GraphKeys.TRAINABLE_VARIABLES,
+                    '{}/transformation'.format(name))
+                model_gradient_accumulators = graph\
+                    .get_collection('{}/model_gradient_accumulators'.format(
+                        name))
+
+                print(session.run(trainable_variables[:2]))
+                print(session.run(model_gradient_accumulators[:2]))
+
+        # calculate move rate gradients
+        move_rate_input = []
+        ucb_move_rate_input = []
+        ugtsa_move_rate_input = []
+        for move_rate, (
                 ugtsa_move_rate,
                 oracle_ucb_move_rate,
-                oracle_ugtsa_move_rate) in move_rate_dict.items()}
+                oracle_ugtsa_move_rate) in sorted(move_rate_dict.items()):
+            move_rate_input += [ugtsa_move_rate]
+            ucb_move_rate_input += [oracle_ucb_move_rate]
+            ugtsa_move_rate_input += [oracle_ugtsa_move_rate]
+
+        loss, move_rate_gradient = session.run([
+            graph.get_tensor_by_name('cost_function/output:0'),
+            graph.get_tensor_by_name('cost_function/move_rate_gradient:0')],
+            {
+                graph.get_tensor_by_name('cost_function/move_rate:0'):
+                    move_rate_input,
+                graph.get_tensor_by_name('cost_function/ucb_move_rate:0'):
+                    ucb_move_rate_input,
+                graph.get_tensor_by_name('cost_function/ugtsa_move_rate:0'):
+                    ugtsa_move_rate_input
+            })
+
+        logger.info('loss {}'.format(loss))
+        if args.debug:
+            print(move_rate_gradient)
 
         self.ugtsa_algorithm.computation_graph.model_gradients(
             first_node=first_node,
-            y_grads=y_grads)
+            y_grads={
+                move_rate: gradient
+                for (move_rate, _), gradient in zip(
+                    sorted(move_rate_dict.items()), move_rate_gradient)})
+
+        session.run(graph.get_operation_by_name(
+            'apply_gradients/apply_gradients'))
+
+        if args.debug:
+            for name in [
+                    'empty_statistic',
+                    'move_rate',
+                    'game_state_as_update',
+                    'updated_statistic',
+                    'updated_update',
+                    'cost_function']:
+                trainable_variables = graph.get_collection(
+                    tf.GraphKeys.TRAINABLE_VARIABLES,
+                    '{}/transformation'.format(name))
+                model_gradient_accumulators = graph\
+                    .get_collection('{}/model_gradient_accumulators'.format(
+                        name))
+
+                print(session.run(trainable_variables[:2]))
+                print(session.run(model_gradient_accumulators[:2]))
+
+        gradients_end = time.time()
+        logger.info('gradients took {}'.format(gradients_end - gradients_begin))
 
         first_node = len(
             self.ugtsa_algorithm.computation_graph.computation_graph.nodes)
         move_rate_dict = {}
 
-        # TODO: apply gradients
         logger.info('{}: training - apply gradients end'.format(
             threading.get_ident()))
 
@@ -198,15 +282,14 @@ class TrainingThread(Thread):
 
                 self.oracle_thread.training_thread_semaphore.acquire()
 
-                # TODO: use only unmasked moves
-                for move_rate, oracle_ucb_move_rate, \
-                    oracle_ugtsa_move_rate in zip(
-                        ugtsa_move_rates, self.oracle_thread.ucb_move_rates,
-                        self.oracle_thread.ugtsa_move_rates):
-                    move_rate_dict[move_rate] = (
-                        self.ugtsa_algorithm.value(move_rate),
-                        oracle_ucb_move_rate,
-                        oracle_ugtsa_move_rate)
+                for idx, (move_rate, oracle_ucb_move_rate, oracle_ugtsa_move_rate) in \
+                        enumerate(zip(ugtsa_move_rates, self.oracle_thread.ucb_move_rates,
+                                      self.oracle_thread.ugtsa_move_rates)):
+                    if idx not in self.removed_root_moves:
+                        move_rate_dict[move_rate] = (
+                            self.ugtsa_algorithm.value(move_rate),
+                            oracle_ucb_move_rate,
+                            oracle_ugtsa_move_rate)
 
                 self.oracle_thread.ucb_move_rates = None
                 self.oracle_thread.ugtsa_move_rates = None
@@ -280,8 +363,10 @@ class GameStateThread(Thread):
 
         print(game_state)
 
-        # TODO: removed moves
-        removed_root_moves = []
+        removed_root_moves = choice(
+            range(game_state.move_count()),
+            max(0, game_state.move_count() - int(game_state.move_count() / 4)),
+            replace=False)
 
         ucb_algorithm = UCBAlgorithm(
             game_state=deepcopy(game_state),
@@ -321,18 +406,14 @@ class GameStateThread(Thread):
         training_thread = TrainingThread(
             ugtsa_algorithm=training_ugtsa_algorithm,
             oracle_thread=oracle_thread,
-            thread_synchronizer=self.thread_synchronizer)
+            thread_synchronizer=self.thread_synchronizer,
+            removed_root_moves=removed_root_moves)
 
         oracle_thread.start()
         training_thread.start()
 
         oracle_thread.join()
         training_thread.join()
-
-graph = tf.Graph()
-model_builder.worker_count = args.ugtsa_worker_count
-with graph.as_default():
-    model_builder.build()
 
 config = tf.ConfigProto()
 if args.debug:
@@ -341,41 +422,47 @@ if args.debug:
 with tf.Session(config=config, graph=graph) as session:
     session.run(tf.global_variables_initializer())
 
-    oracle_computation_graph = SynchronizedComputationGraph(
-        ShiftableComputationGraph(False, session))
-    oracle_empty_statistic, oracle_move_rate, oracle_game_state_as_update, \
-        oracle_updated_statistic, oracle_updated_update = \
-        ModelBuilder.transformations(oracle_computation_graph, graph)
+    for i in range(args.number_of_iterations):
+        first_node = 0
 
-    training_computation_graph = SynchronizedComputationGraph(
-        ShiftableComputationGraph(True, session))
-    training_empty_statistic, training_move_rate, \
+        logger.info('{}: global_step {}'.format(i, session.run(
+            graph.get_tensor_by_name('globals/global_step:0'))))
+
+        oracle_computation_graph = SynchronizedComputationGraph(
+            ShiftableComputationGraph(False, session))
+        oracle_empty_statistic, oracle_move_rate, oracle_game_state_as_update, \
+        oracle_updated_statistic, oracle_updated_update = \
+            ModelBuilder.transformations(oracle_computation_graph)
+
+        training_computation_graph = SynchronizedComputationGraph(
+            ShiftableComputationGraph(True, session))
+        training_empty_statistic, training_move_rate, \
         training_game_state_as_update, training_updated_statistic, \
         training_updated_update = \
-        ModelBuilder.transformations(training_computation_graph, graph)
+            ModelBuilder.transformations(training_computation_graph)
 
-    thread_synchronizer = ThreadSynchronizer(args.thread_count)
+        thread_synchronizer = ThreadSynchronizer(args.thread_count)
 
-    game_state_threads = [
-        GameStateThread(
-            game_state=deepcopy(game_state),
-            thread_synchronizer=thread_synchronizer,
-            training_computation_graph=training_computation_graph,
-            training_empty_statistic=training_empty_statistic,
-            training_move_rate=training_move_rate,
-            training_game_state_as_update=training_game_state_as_update,
-            training_updated_statistic=training_updated_statistic,
-            training_updated_update=training_updated_update,
-            oracle_computation_graph=oracle_computation_graph,
-            oracle_empty_statistic=oracle_empty_statistic,
-            oracle_move_rate=oracle_move_rate,
-            oracle_game_state_as_update=oracle_game_state_as_update,
-            oracle_updated_statistic=oracle_updated_statistic,
-            oracle_updated_update=oracle_updated_update)
-        for _ in range(args.thread_count)]
+        game_state_threads = [
+            GameStateThread(
+                game_state=deepcopy(game_state),
+                thread_synchronizer=thread_synchronizer,
+                training_computation_graph=training_computation_graph,
+                training_empty_statistic=training_empty_statistic,
+                training_move_rate=training_move_rate,
+                training_game_state_as_update=training_game_state_as_update,
+                training_updated_statistic=training_updated_statistic,
+                training_updated_update=training_updated_update,
+                oracle_computation_graph=oracle_computation_graph,
+                oracle_empty_statistic=oracle_empty_statistic,
+                oracle_move_rate=oracle_move_rate,
+                oracle_game_state_as_update=oracle_game_state_as_update,
+                oracle_updated_statistic=oracle_updated_statistic,
+                oracle_updated_update=oracle_updated_update)
+            for _ in range(args.thread_count)]
 
-    for thread in game_state_threads:
-        thread.start()
+        for thread in game_state_threads:
+            thread.start()
 
-    for thread in game_state_threads:
-        thread.join()
+        for thread in game_state_threads:
+            thread.join()

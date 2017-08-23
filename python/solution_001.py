@@ -58,6 +58,9 @@ with tf.Session(config=config, graph=graph) as session:
                      len(computation_graph.nodes)
         computation_graph.shift(first_node)
 
+        logger.info('{}: global_step {}'.format(i, session.run(
+            graph.get_tensor_by_name('globals/global_step:0'))))
+
         gs = GameState.random_game_state(game_state)
         if gs.is_final:
             gs.undo_move()
@@ -147,7 +150,7 @@ with tf.Session(config=config, graph=graph) as session:
                     ugtsa_move_rate_input
             })
 
-        print(loss)
+        logger.info('{}: loss {}'.format(i, loss))
         if args.debug:
             print(move_rate_gradient)
 
