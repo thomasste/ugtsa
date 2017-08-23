@@ -2,6 +2,7 @@ from computation_graphs.computation_graph.computation_graph import \
     ComputationGraph
 
 import tensorflow as tf
+import itertools
 
 
 class ModelBuilder(object):
@@ -36,6 +37,14 @@ class ModelBuilder(object):
     def _updated_update_transformation(self, seed, update, statistic):
         raise NotImplementedError
 
+    def _cost_function_transformation(
+            self, move_rate, ucb_move_rate, ugtsa_move_rate,
+            trainable_variables):
+        raise NotImplementedError
+
+    def _apply_gradients(self, grads_and_vars):
+        raise NotImplementedError
+
     def __model_gradients(
             self, variable_scope: tf.VariableScope,
             transformation_variable_scope: tf.VariableScope,
@@ -60,7 +69,8 @@ class ModelBuilder(object):
             tf.add_to_collection(
                 '{}/update_model_gradient_accumulators'.format(
                     variable_scope.name),
-                tf.assign_add(gradient_accumulator, gradient, use_locking=True).op)
+                tf.assign_add(
+                    gradient_accumulator, gradient, use_locking=True).op)
 
         tf.variables_initializer(
             tf.get_collection(
@@ -253,24 +263,96 @@ class ModelBuilder(object):
                 variable_scope, transformation_variable_scope, output,
                 output_gradient)
 
+    def __build_cost_function_graph(self):
+        print('cost_function')
+        with tf.variable_scope('cost_function') as variable_scope:
+            move_rate = tf.placeholder(
+                tf.float32,
+                [None, self.player_count],
+                'move_rate')
+            ucb_move_rate = tf.placeholder(
+                tf.float32,
+                [None, self.player_count],
+                'ucb_move_rate')
+            ugtsa_move_rate = tf.placeholder(
+                tf.float32,
+                [None, self.player_count],
+                'ugtsa_move_rate')
+
+            trainable_variables = itertools.chain(*[
+                tf.get_collection(
+                    tf.GraphKeys.TRAINABLE_VARIABLES,
+                    '{}/transformation'.format(name))
+                for name in [
+                    'empty_statistic',
+                    'move_rate',
+                    'game_state_as_update',
+                    'updated_statistic',
+                    'updated_update']])
+
+            with tf.variable_scope('transformation') as \
+                    transformation_variable_scope:
+                signal = self._cost_function_transformation(
+                    move_rate, ucb_move_rate, ugtsa_move_rate,
+                    trainable_variables)
+
+            output = tf.identity(signal, 'output')
+
+            move_rate_gradient, = tf.gradients(output, [move_rate])
+            tf.identity(move_rate_gradient, 'move_rate_gradient')
+
+            self.__model_gradients(
+                variable_scope, transformation_variable_scope, output, 1)
+
+    def __build_apply_gradients_graph(self):
+        print('apply_gradients')
+        with tf.variable_scope('apply_gradients'):
+            grads_and_vars = []
+            for name in [
+                    'empty_statistic',
+                    'move_rate',
+                    'game_state_as_update',
+                    'updated_statistic',
+                    'updated_update',
+                    'cost_function']:
+                trainable_variables = tf.get_collection(
+                    tf.GraphKeys.TRAINABLE_VARIABLES,
+                    '{}/transformation'.format(name))
+                model_gradient_accumulators = tf.get_default_graph()\
+                    .get_collection('{}/model_gradient_accumulators'.format(
+                        name))
+                for variable, gradient in zip(
+                        trainable_variables, model_gradient_accumulators):
+                    grads_and_vars += [(gradient, variable)]
+
+            self._apply_gradients(grads_and_vars)
+
     def build(self):
         with tf.variable_scope('settings'):
             self.training = tf.placeholder(tf.bool, name='training')
+
+        with tf.variable_scope('globals'):
+            self.global_step = tf.Variable(
+                initial_value=0, dtype=tf.int32, name='global_step',
+                trainable=False)
 
         self.__build_empty_statistic_graph()
         self.__build_move_rate_graph()
         self.__build_game_state_as_update_graph()
         self.__build_updated_statistic_graph()
         self.__build_updated_update_graph()
+        self.__build_cost_function_graph()
+        self.__build_apply_gradients_graph()
 
     @classmethod
     def transformation(
-            cls, computation_graph: ComputationGraph, graph: tf.Graph,
-            name: str, inputs: [(str, bool)]) \
-            -> ComputationGraph.Transformation:
+            cls, computation_graph: ComputationGraph, name: str,
+            inputs: [(str, bool)]) -> ComputationGraph.Transformation:
         template = '{}/{{}}'.format(name)
         template_0 = '{}/{{}}:0'.format(name)
         template_g0 = '{}/{{}}_gradient:0'.format(name)
+
+        graph = tf.get_default_graph()
 
         return computation_graph.transformation(
             inputs=[
@@ -283,10 +365,6 @@ class ModelBuilder(object):
             output=graph.get_tensor_by_name(template_0.format('output')),
             output_gradient=graph.get_tensor_by_name(
                 template_g0.format('output')),
-            model_gradient_accumulators=graph.get_collection(
-                template.format('model_gradient_accumulators')),
-            zero_model_gradient_accumulators=graph.get_operation_by_name(
-                template.format('zero_model_gradient_accumulators')),
             update_model_gradient_accumulators=graph.get_collection(
                 template.format('update_model_gradient_accumulators')),
             seed=graph.get_tensor_by_name(template_0.format('seed')),
@@ -294,10 +372,10 @@ class ModelBuilder(object):
 
     @classmethod
     def transformations(
-            cls, computation_graph: ComputationGraph, graph: tf.Graph) \
+            cls, computation_graph: ComputationGraph) \
             -> [ComputationGraph.Transformation]:
         return [
-            cls.transformation(computation_graph, graph, name, inputs)
+            cls.transformation(computation_graph, name, inputs)
             for name, inputs in [
                 ('empty_statistic', [
                     ('game_state_board', False),

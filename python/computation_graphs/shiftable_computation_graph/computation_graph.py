@@ -12,8 +12,6 @@ class ComputationGraph(computation_graph.ComputationGraph):
     Transformation_ = recordclass(
         'Transformation', 'inputs input_gradients '
                           'output output_gradient '
-                          'model_gradient_accumulators '
-                          'zero_model_gradient_accumulators '
                           'update_model_gradient_accumulators '
                           'seed training')
     Node_ = recordclass('Node', 'transformation inputs output')
@@ -30,8 +28,6 @@ class ComputationGraph(computation_graph.ComputationGraph):
     def transformation(
             self, inputs: [tf.Tensor], input_gradients: [tf.Tensor],
             output: tf.Tensor, output_gradient: tf.Tensor,
-            model_gradient_accumulators: [tf.Tensor],
-            zero_model_gradient_accumulators,
             update_model_gradient_accumulators,
             seed: tf.Tensor, training: tf.Tensor) \
             -> Transformation:
@@ -41,9 +37,6 @@ class ComputationGraph(computation_graph.ComputationGraph):
                 input_gradients=input_gradients,
                 output=output,
                 output_gradient=output_gradient,
-                model_gradient_accumulators=model_gradient_accumulators,
-                zero_model_gradient_accumulators=
-                zero_model_gradient_accumulators,
                 update_model_gradient_accumulators=
                 update_model_gradient_accumulators,
                 seed=seed,
@@ -163,9 +156,6 @@ class ComputationGraph(computation_graph.ComputationGraph):
                 gradients[node_input - gradients_shift] += input_gradient
 
     def model_gradients(self, first_node: Node, y_grads):
-        for transformation in self.transformations:
-            self.session.run(transformation.zero_model_gradient_accumulators)
-
         gradients_shift = first_node
 
         gradients = [
@@ -270,10 +260,6 @@ class ComputationGraph(computation_graph.ComputationGraph):
                                 gradients_shift)
 
             batches.pop()
-
-        return [
-            self.session.run(transformation.model_gradient_accumulators)
-            for transformation in self.transformations]
 
     def shift(self, nodes_shift):
         first_batch_index = next(

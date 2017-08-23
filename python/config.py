@@ -38,7 +38,9 @@ config = {
                                 updated_statistic_hidden_output_sizes=[
                                     25, 25, 25],
                                 updated_update_hidden_output_sizes=[
-                                    25, 25, 25]),
+                                    25, 25, 25],
+                                cost_function_ucb_half_life=20000,
+                                cost_function_regularization_factor=0.001),
                         'small_vertical_lstm_model_builder':
                             vertical_lstm_model_builder.ModelBuilder(
                                 player_count=2,
@@ -64,7 +66,9 @@ config = {
                                 updated_statistic_hidden_output_sizes=[
                                     25, 25, 25],
                                 updated_update_lstm_state_sizes=[
-                                    25, 25, 25]),
+                                    25, 25, 25],
+                                cost_function_ucb_half_life=20000,
+                                cost_function_regularization_factor=0.001),
                     },
                 },
             },

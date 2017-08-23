@@ -17,7 +17,9 @@ class ModelBuilder(model_builder.ModelBuilder):
             game_state_as_update_hidden_output_sizes,
             updated_statistic_lstm_state_sizes,
             updated_statistic_hidden_output_sizes,
-            updated_update_hidden_output_sizes):
+            updated_update_hidden_output_sizes,
+            cost_function_ucb_half_life,
+            cost_function_regularization_factor):
         super().__init__(
             player_count, worker_count, statistic_size, update_size,
             game_state_board_shape, game_state_statistic_size,
@@ -37,6 +39,9 @@ class ModelBuilder(model_builder.ModelBuilder):
             updated_statistic_hidden_output_sizes
         self.updated_update_hidden_output_sizes = \
             updated_update_hidden_output_sizes
+        self.cost_function_ucb_half_life = cost_function_ucb_half_life
+        self.cost_function_regularization_factor = \
+            cost_function_regularization_factor
 
     def _empty_statistic_transformation(
             self, seed, game_state_board, game_state_statistic):
@@ -180,3 +185,34 @@ class ModelBuilder(model_builder.ModelBuilder):
                 print(signal.get_shape())
 
         return signal
+
+    def _cost_function_transformation(
+            self, move_rate, ucb_move_rate, ugtsa_move_rate,
+            trainable_variables):
+        # labels
+        global_step_as_float = tf.cast(self.global_step, tf.float32)
+        alpha = 1 - (global_step_as_float /
+                     (self.cost_function_ucb_half_life + global_step_as_float))
+
+        ucb_move_rate /= tf.reshape(tf.reduce_sum(ucb_move_rate, axis=1), (-1, 1))
+
+        labels = alpha * ucb_move_rate + (1 - alpha) * ugtsa_move_rate
+
+        # output
+        output_loss = tf.reduce_mean(
+            tf.nn.softmax_cross_entropy_with_logits(
+                logits=move_rate, labels=labels))
+
+        # regularization
+        regularization_loss = tf.reduce_sum([
+            tf.nn.l2_loss(variable)
+            for variable in trainable_variables
+            if 'bias' not in variable.name])
+
+        return output_loss + \
+            self.cost_function_regularization_factor * regularization_loss
+
+    def _apply_gradients(self, grads_and_vars):
+        optimizer = tf.train.AdamOptimizer()
+        return optimizer.apply_gradients(
+            grads_and_vars, self.global_step, 'apply_gradients')

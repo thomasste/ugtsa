@@ -16,7 +16,9 @@ class ModelBuilder(model_builder.ModelBuilder):
             game_state_as_update_hidden_output_sizes,
             updated_statistic_lstm_state_sizes,
             updated_statistic_hidden_output_sizes,
-            updated_update_lstm_state_sizes):
+            updated_update_lstm_state_sizes,
+            cost_function_ucb_half_life,
+            cost_function_regularization_factor):
         super().__init__(
             player_count, worker_count, statistic_size, update_size,
             game_state_board_shape, game_state_statistic_size,
@@ -28,7 +30,9 @@ class ModelBuilder(model_builder.ModelBuilder):
             game_state_as_update_hidden_output_sizes,
             updated_statistic_lstm_state_sizes,
             updated_statistic_hidden_output_sizes,
-            [])
+            [],
+            cost_function_ucb_half_life,
+            cost_function_regularization_factor)
         self.updated_update_lstm_state_sizes = updated_update_lstm_state_sizes
         assert self.update_size == 2 * sum(updated_update_lstm_state_sizes)
 

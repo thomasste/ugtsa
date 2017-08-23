@@ -50,9 +50,8 @@ with tf.Session(config=config, graph=graph) as session:
     session.run(tf.global_variables_initializer())
 
     computation_graph = ComputationGraph(True, session)
-    empty_statistic, move_rate, game_state_as_update, \
-        updated_statistic, updated_update = \
-        ModelBuilder.transformations(computation_graph, graph)
+    transformations = ModelBuilder.transformations(
+        computation_graph)
 
     for i in range(args.number_of_iterations):
         first_node = computation_graph.nodes_shift + \
@@ -60,6 +59,8 @@ with tf.Session(config=config, graph=graph) as session:
         computation_graph.shift(first_node)
 
         gs = GameState.random_game_state(game_state)
+        if gs.is_final:
+            gs.undo_move()
         # gs = game_state
 
         ucb_begin = time.time()
@@ -81,26 +82,84 @@ with tf.Session(config=config, graph=graph) as session:
             grow_factor=5,
             removed_root_moves=[],
             computation_graph=computation_graph,
-            empty_statistic=empty_statistic,
-            move_rate=move_rate,
-            game_state_as_update=game_state_as_update,
-            updated_statistic=updated_statistic,
-            updated_update=updated_update)
+            empty_statistic=transformations[0],
+            move_rate=transformations[1],
+            game_state_as_update=transformations[2],
+            updated_statistic=transformations[3],
+            updated_update=transformations[4])
         for _ in range(args.ugtsa_strength):
             ugtsa_algorithm.improve()
         ugtsa_end = time.time()
         logger.info('{}: UGTSA took {}'.format(i, ugtsa_end - ugtsa_begin))
 
-        # TODO: cost function
         gradients_begin = time.time()
-        gradients = computation_graph.model_gradients(
+        # zero gradient accumulators
+        for name in [
+                'empty_statistic',
+                'move_rate',
+                'game_state_as_update',
+                'updated_statistic',
+                'updated_update',
+                'cost_function']:
+            session.run(tf.get_default_graph().get_operation_by_name(
+                '{}/zero_model_gradient_accumulators'.format(name)))
+
+        if args.debug:
+            for name in [
+                    'empty_statistic',
+                    'move_rate',
+                    'game_state_as_update',
+                    'updated_statistic',
+                    'updated_update',
+                    'cost_function']:
+                trainable_variables = tf.get_collection(
+                    tf.GraphKeys.TRAINABLE_VARIABLES,
+                    '{}/transformation'.format(name))
+                model_gradient_accumulators = tf.get_default_graph()\
+                    .get_collection('{}/model_gradient_accumulators'.format(
+                        name))
+
+                print(session.run(trainable_variables[:2]))
+                print(session.run(model_gradient_accumulators[:2]))
+
+        # calculate move rate gradients
+        move_rates = ugtsa_algorithm.move_rates()
+
+        move_rate_input = []
+        ucb_move_rate_input = []
+        ugtsa_move_rate_input = []
+        for move_rate, ucb_move_rate in zip(
+                ugtsa_algorithm.move_rates(), ucb_algorithm.move_rates()):
+            move_rate_input += [ugtsa_algorithm.value(move_rate)]
+            ucb_move_rate_input += [ucb_algorithm.value(ucb_move_rate)]
+            ugtsa_move_rate_input += [
+                np.zeros(gs.player_count, dtype=np.float32)]
+
+        loss, move_rate_gradient = session.run([
+            graph.get_tensor_by_name('cost_function/output:0'),
+            graph.get_tensor_by_name('cost_function/move_rate_gradient:0')],
+            {
+                graph.get_tensor_by_name('cost_function/move_rate:0'):
+                    move_rate_input,
+                graph.get_tensor_by_name('cost_function/ucb_move_rate:0'):
+                    ucb_move_rate_input,
+                graph.get_tensor_by_name('cost_function/ugtsa_move_rate:0'):
+                    ugtsa_move_rate_input
+            })
+
+        print(loss)
+        if args.debug:
+            print(move_rate_gradient)
+
+        computation_graph.model_gradients(
             first_node=first_node,
             y_grads={
-                ugtsa_move_rate:
-                    ugtsa_algorithm.value(ugtsa_move_rate) -
-                    ucb_algorithm.value(ucb_move_rate)
-                for ugtsa_move_rate, ucb_move_rate in zip(
-                    ugtsa_algorithm.move_rates(), ucb_algorithm.move_rates())})
+                move_rate: gradient
+                for move_rate, gradient in zip(
+                    move_rates, move_rate_gradient)})
+
+        session.run(graph.get_operation_by_name(
+            'apply_gradients/apply_gradients'))
         gradients_end = time.time()
         logger.info(
             '{}: gradients took {}'.format(i, gradients_end - gradients_begin))
@@ -112,4 +171,20 @@ with tf.Session(config=config, graph=graph) as session:
         if args.debug:
             print(ucb_algorithm.tree[:20])
             print(ugtsa_algorithm.tree[:20])
-            print(gradients)
+
+            for name in [
+                    'empty_statistic',
+                    'move_rate',
+                    'game_state_as_update',
+                    'updated_statistic',
+                    'updated_update',
+                    'cost_function']:
+                trainable_variables = tf.get_collection(
+                    tf.GraphKeys.TRAINABLE_VARIABLES,
+                    '{}/transformation'.format(name))
+                model_gradient_accumulators = tf.get_default_graph()\
+                    .get_collection('{}/model_gradient_accumulators'.format(
+                        name))
+
+                print(session.run(trainable_variables[:2]))
+                print(session.run(model_gradient_accumulators[:2]))
