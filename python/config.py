@@ -71,6 +71,64 @@ config = {
                                     cost_function_regularization_factor=0.001),
                                 updated_update_lstm_state_sizes=[
                                     25, 25, 25]),
+                        'big_basic_model_builder':
+                            BasicModelBuilder(
+                                player_count=2,
+                                worker_count=None,
+                                statistic_size=300,
+                                update_size=300,
+                                game_state_board_shape=[7, 7],
+                                game_state_statistic_size=2,
+                                update_statistic_size=2,
+                                seed_size=30,
+                                empty_statistic_filter_shapes=[
+                                    (2, 2, 64), (2, 2, 128)],
+                                empty_statistic_window_shapes=[
+                                    (1, 2, 2, 1), (1, 2, 2, 1)],
+                                empty_statistic_hidden_output_sizes=[
+                                    500, 500, 500, 500, 500],
+                                move_rate_hidden_output_sizes=[
+                                    500, 500, 500, 500, 500],
+                                game_state_as_update_hidden_output_sizes=[
+                                    500, 500, 500, 500, 500],
+                                updated_statistic_lstm_state_sizes=[
+                                    500, 500, 500, 500, 500],
+                                updated_statistic_hidden_output_sizes=[
+                                    500, 500, 500, 500, 500],
+                                updated_update_hidden_output_sizes=[
+                                    500, 500, 500, 500, 500],
+                                cost_function_ucb_half_life=20000,
+                                cost_function_regularization_factor=0.001),
+                        'big_vertical_lstm_model_builder':
+                            VerticalLSTMModelBuilder(
+                                model_builder=BasicModelBuilder(
+                                    player_count=2,
+                                    worker_count=None,
+                                    statistic_size=300,
+                                    update_size=300,
+                                    game_state_board_shape=[7, 7],
+                                    game_state_statistic_size=2,
+                                    update_statistic_size=2,
+                                    seed_size=30,
+                                    empty_statistic_filter_shapes=[
+                                        (2, 2, 64), (2, 2, 128)],
+                                    empty_statistic_window_shapes=[
+                                        (1, 2, 2, 1), (1, 2, 2, 1)],
+                                    empty_statistic_hidden_output_sizes=[
+                                        500, 500, 500, 500, 500],
+                                    move_rate_hidden_output_sizes=[
+                                        500, 500, 500, 500, 500],
+                                    game_state_as_update_hidden_output_sizes=[
+                                        500, 500, 500, 500, 500],
+                                    updated_statistic_lstm_state_sizes=[
+                                        500, 500, 500, 500, 500],
+                                    updated_statistic_hidden_output_sizes=[
+                                        500, 500, 500, 500, 500],
+                                    updated_update_hidden_output_sizes=None,
+                                    cost_function_ucb_half_life=20000,
+                                    cost_function_regularization_factor=0.001),
+                                updated_update_lstm_state_sizes=[
+                                    50, 50, 50]),
                     },
                 },
             },
