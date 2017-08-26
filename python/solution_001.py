@@ -96,7 +96,7 @@ with tf.Session(config=config, graph=graph) as session:
         # zero gradient accumulators
         ModelBuilder.zero_model_gradient_accumulators()
         if args.debug:
-           ModelBuilder.model_gradient_accumulators_debug_info()
+            ModelBuilder.model_gradient_accumulators_debug_info()
 
         # calculate move rate gradients
         move_rates = ugtsa_algorithm.move_rates()

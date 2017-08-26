@@ -40,7 +40,8 @@ class ModelBuilder(model_builder.ModelBuilder):
 
     def set_game_state_statistic_size(self, game_state_statistic_size):
         self.game_state_statistic_size = game_state_statistic_size
-        self.model_builder.set_game_state_statistic_size(game_state_statistic_size)
+        self.model_builder.set_game_state_statistic_size(
+            game_state_statistic_size)
 
     def set_update_statistic_size(self, update_statistic_size):
         self.update_statistic_size = update_statistic_size

@@ -10,10 +10,9 @@ class Algorithm(algorithm.Algorithm):
     Update = np.ndarray
     Rate = np.ndarray
 
-    def __init__(
-            self, game_state: GameState, worker_count: int,
-            grow_factor: int, removed_root_moves: [int],
-            exploration_factor: int):
+    def __init__(self, game_state: GameState, worker_count: int,
+                 grow_factor: int, removed_root_moves: [int],
+                 exploration_factor: int):
         super().__init__(
             game_state, worker_count, grow_factor, removed_root_moves)
 
@@ -22,8 +21,8 @@ class Algorithm(algorithm.Algorithm):
     def _empty_statistic(self, game_state: GameState) -> Statistic:
         return Algorithm.Statistic(w=np.zeros(game_state.player_count), n=0)
 
-    def _move_rate(
-            self, parent_statistic: Statistic, child_statistic: Statistic) \
+    def _move_rate(self, parent_statistic: Statistic,
+                   child_statistic: Statistic) \
             -> Rate:
         return child_statistic.w / (child_statistic.n + 0.1) + \
                self.exploration_factor * \
@@ -32,8 +31,8 @@ class Algorithm(algorithm.Algorithm):
     def _game_state_as_update(self, game_state: GameState) -> Update:
         return game_state.random_playout_payoff()
 
-    def _updated_statistic(
-            self, statistic: Statistic, updates: [Update]) -> Statistic:
+    def _updated_statistic(self, statistic: Statistic, updates: [Update]) \
+            -> Statistic:
         new_statistic = Algorithm.Statistic(
             w=np.array(statistic.w, copy=True),
             n=statistic.n + len(updates))

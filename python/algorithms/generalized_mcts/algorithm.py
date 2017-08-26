@@ -37,7 +37,7 @@ class Algorithm(algorithm.Algorithm):
         self.grow_factor = grow_factor
         self.removed_root_moves = removed_root_moves
 
-    def _empty_statistic(self, game_state: [GameState]) -> [Statistic]:
+    def _empty_statistic(self, game_state: GameState) -> Statistic:
         raise NotImplementedError
 
     def _move_rate(
@@ -223,7 +223,7 @@ class Algorithm(algorithm.Algorithm):
 
             self.__up_case(workers, result1, result2)
 
-    def move_rates(self) -> [(GameState.Move, Rate)]:
+    def move_rates(self) -> [Rate]:
         root = self.tree[0]
         assert root.children
 

@@ -1,7 +1,9 @@
 from games.omringa import game_state as omringa_game_state
 from games.omringa import algorithm as omringa_algorithm
-from model_builders.basic_model_builder.model_builder import ModelBuilder as BasicModelBuilder
-from model_builders.vertical_lstm_model_builder.model_builder import ModelBuilder as VerticalLSTMModelBuilder
+from model_builders.basic_model_builder.model_builder \
+    import ModelBuilder as BasicModelBuilder
+from model_builders.vertical_lstm_model_builder.model_builder \
+    import ModelBuilder as VerticalLSTMModelBuilder
 
 config = {
     'games': {
@@ -60,8 +62,10 @@ config = {
                                         25, 25, 25],
                                     game_state_as_update_hidden_output_sizes=[
                                         25, 25, 25],
-                                    updated_statistic_lstm_state_sizes=[25, 25, 25],
-                                    updated_statistic_hidden_output_sizes=[25, 25, 25],
+                                    updated_statistic_lstm_state_sizes=[
+                                        25, 25, 25],
+                                    updated_statistic_hidden_output_sizes=[
+                                        25, 25, 25],
                                     updated_update_hidden_output_sizes=None,
                                     cost_function_ucb_half_life=20000,
                                     cost_function_regularization_factor=0.001),

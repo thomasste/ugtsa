@@ -95,7 +95,8 @@ class OracleThread(Thread):
         with self.session.as_default():
             with self.graph.as_default():
 
-                logger.info('{}: oracle - started'.format(threading.get_ident()))
+                logger.info('{}: oracle - started'.format(
+                    threading.get_ident()))
                 self.ugtsa_algorithm.computation_graph.add_thread()
 
                 improve_counter = 0
@@ -119,10 +120,12 @@ class OracleThread(Thread):
                                  for x in self.ugtsa_algorithm.tree[:20]]))
                             self.ucb_move_rates = [
                                 self.ucb_algorithm.value(move_rate)
-                                for move_rate in self.ucb_algorithm.move_rates()]
+                                for move_rate in
+                                self.ucb_algorithm.move_rates()]
                             self.ugtsa_move_rates = [
                                 self.ugtsa_algorithm.value(move_rate)
-                                for move_rate in self.ugtsa_algorithm.move_rates()]
+                                for move_rate in
+                                self.ugtsa_algorithm.move_rates()]
 
                             self.training_thread_is_waiting = False
                             self.training_thread_semaphore.release()
@@ -131,15 +134,17 @@ class OracleThread(Thread):
                             break
 
                 self.ugtsa_algorithm.computation_graph.remove_thread()
-                logger.info('{}: oracle finished'.format(threading.get_ident()))
+                logger.info('{}: oracle finished'.format(
+                    threading.get_ident()))
 
 
 class TrainingThread(Thread):
     SharedState = recordclass('SharedState', 'first_node move_rate_dict')
 
-    def __init__(self, session, graph, ugtsa_algorithm, oracle_thread: OracleThread,
-                 removed_root_moves: [int],
-                 thread_synchronizer: ThreadSynchronizer, shared_state: SharedState):
+    def __init__(self, session, graph, ugtsa_algorithm,
+                 oracle_thread: OracleThread, removed_root_moves: [int],
+                 thread_synchronizer: ThreadSynchronizer,
+                 shared_state: SharedState):
         super().__init__()
         self.session = session
         self.graph = graph
@@ -187,14 +192,16 @@ class TrainingThread(Thread):
             y_grads={
                 move_rate: gradient
                 for (move_rate, _), gradient in zip(
-                    sorted(self.shared_state.move_rate_dict.items()), move_rates_gradient)})
+                    sorted(self.shared_state.move_rate_dict.items()),
+                    move_rates_gradient)})
 
         # apply gradients
         ModelBuilder.apply_gradients()
         if args.debug:
             ModelBuilder.model_gradient_accumulators_debug_info()
         gradients_end = time.time()
-        logger.info('gradients took {}'.format(gradients_end - gradients_begin))
+        logger.info('gradients took {}'.format(
+            gradients_end - gradients_begin))
 
         self.shared_state.first_node = len(
             self.ugtsa_algorithm.computation_graph.computation_graph.nodes)
@@ -206,7 +213,8 @@ class TrainingThread(Thread):
     def run(self):
         with self.session.as_default():
             with self.graph.as_default():
-                logger.info('{}: training started'.format(threading.get_ident()))
+                logger.info('{}: training started'.format(
+                    threading.get_ident()))
                 self.ugtsa_algorithm.computation_graph.add_thread()
 
                 counter = 0
@@ -217,9 +225,11 @@ class TrainingThread(Thread):
                     self.ugtsa_algorithm.improve()
                     improve_counter += 1
 
-                    if time.time() - last_gradient_time > args.compute_gradient_each:
-                        logger.info('{}: training - compute_gradients begin'.format(
-                            threading.get_ident()))
+                    if time.time() - last_gradient_time > \
+                            args.compute_gradient_each:
+                        logger.info(
+                            '{}: training - compute_gradients begin'.format(
+                                threading.get_ident()))
                         logger.info('{}: training ucb {} {}'.format(
                             threading.get_ident(),
                             improve_counter,
@@ -232,13 +242,17 @@ class TrainingThread(Thread):
                         self.ugtsa_algorithm.computation_graph.remove_thread()
 
                         with self.oracle_thread.lock:
-                            self.oracle_thread.training_thread_is_waiting = True
+                            self.oracle_thread.training_thread_is_waiting = \
+                                True
 
                         self.oracle_thread.training_thread_semaphore.acquire()
 
-                        for idx, (move_rate, oracle_ucb_move_rate, oracle_ugtsa_move_rate) in \
-                                enumerate(zip(ugtsa_move_rates, self.oracle_thread.ucb_move_rates,
-                                              self.oracle_thread.ugtsa_move_rates)):
+                        for idx, (move_rate, oracle_ucb_move_rate,
+                                  oracle_ugtsa_move_rate) in \
+                                enumerate(zip(
+                                    ugtsa_move_rates,
+                                    self.oracle_thread.ucb_move_rates,
+                                    self.oracle_thread.ugtsa_move_rates)):
                             if idx not in self.removed_root_moves:
                                 self.shared_state.move_rate_dict[move_rate] = (
                                     self.ugtsa_algorithm.value(move_rate),
@@ -253,8 +267,9 @@ class TrainingThread(Thread):
                             self.__apply_gradients)
                         last_gradient_time = time.time()
 
-                        logger.info('{}: training - compute_gradients end'.format(
-                            threading.get_ident()))
+                        logger.info(
+                            '{}: training - compute_gradients end'.format(
+                                threading.get_ident()))
 
                         # exit
                         counter += 1
@@ -267,7 +282,8 @@ class TrainingThread(Thread):
                 with self.oracle_thread.lock:
                     self.oracle_thread.should_finish = True
 
-                logger.info('{}: training finished'.format(threading.get_ident()))
+                logger.info('{}: training finished'.format(
+                    threading.get_ident()))
 
 
 class GameStateThread(Thread):
@@ -394,19 +410,21 @@ with tf.Session(config=config, graph=graph) as session:
 
         oracle_computation_graph = SynchronizedComputationGraph(
             BasicComputationGraph(False))
-        oracle_empty_statistic, oracle_move_rate, oracle_game_state_as_update, \
-        oracle_updated_statistic, oracle_updated_update = \
+        oracle_empty_statistic, oracle_move_rate, \
+            oracle_game_state_as_update, oracle_updated_statistic, \
+            oracle_updated_update = \
             ModelBuilder.create_transformations(oracle_computation_graph)
 
         training_computation_graph = SynchronizedComputationGraph(
             BasicComputationGraph(True))
         training_empty_statistic, training_move_rate, \
-        training_game_state_as_update, training_updated_statistic, \
-        training_updated_update = \
+            training_game_state_as_update, training_updated_statistic, \
+            training_updated_update = \
             ModelBuilder.create_transformations(training_computation_graph)
 
         thread_synchronizer = ThreadSynchronizer(args.thread_count)
-        shared_state = TrainingThread.SharedState(first_node=0, move_rate_dict={})
+        shared_state = TrainingThread.SharedState(
+            first_node=0, move_rate_dict={})
 
         game_state_threads = [
             GameStateThread(
