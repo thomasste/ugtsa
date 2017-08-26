@@ -18,6 +18,38 @@ class ModelBuilder(model_builder.ModelBuilder):
         self.updated_update_lstm_state_sizes = updated_update_lstm_state_sizes
         assert self.update_size == 2 * sum(updated_update_lstm_state_sizes)
 
+    def set_player_count(self, player_count):
+        self.player_count = player_count
+        self.model_builder.set_player_count(player_count)
+
+    def set_worker_count(self, worker_count):
+        self.worker_count = worker_count
+        self.model_builder.set_worker_count(worker_count)
+
+    def set_statistic_size(self, statistic_size):
+        self.statistic_size = statistic_size
+        self.model_builder.set_statistic_size(statistic_size)
+
+    def set_update_size(self, update_size):
+        self.update_size = update_size
+        self.model_builder.set_update_size(update_size)
+
+    def set_game_state_board_shape(self, game_state_board_shape):
+        self.game_state_board_shape = game_state_board_shape
+        self.model_builder.set_game_state_board_shape(game_state_board_shape)
+
+    def set_game_state_statistic_size(self, game_state_statistic_size):
+        self.game_state_statistic_size = game_state_statistic_size
+        self.model_builder.set_game_state_statistic_size(game_state_statistic_size)
+
+    def set_update_statistic_size(self, update_statistic_size):
+        self.update_statistic_size = update_statistic_size
+        self.model_builder.set_update_statistic_size(update_statistic_size)
+
+    def set_seed_size(self, seed_size):
+        self.seed_size = seed_size
+        self.model_builder.set_seed_size(seed_size)
+
     def _empty_statistic(self, training, global_step, seed, game_state_board,
                          game_state_statistic):
         return self.model_builder._empty_statistic(
@@ -36,7 +68,7 @@ class ModelBuilder(model_builder.ModelBuilder):
 
     def _updated_statistic(self, training, global_step, seed, statistic,
                            update_count, updates):
-        return self._updated_statistic(
+        return self.model_builder._updated_statistic(
             training, global_step, seed, statistic, update_count, updates)
 
     def _updated_update(self, training, global_step, seed, update, statistic):

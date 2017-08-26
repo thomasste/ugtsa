@@ -378,7 +378,7 @@ class GameStateThread(Thread):
         training_thread.join()
 
 graph = tf.Graph()
-model_builder.worker_count = args.ugtsa_worker_count
+model_builder.set_worker_count(args.ugtsa_worker_count)
 with graph.as_default():
     model_builder.build()
 

@@ -20,6 +20,30 @@ class ModelBuilder(object):
         self.update_statistic_size = update_statistic_size
         self.seed_size = seed_size
 
+    def set_player_count(self, player_count):
+        self.player_count = player_count
+
+    def set_worker_count(self, worker_count):
+        self.worker_count = worker_count
+
+    def set_statistic_size(self, statistic_size):
+        self.statistic_size = statistic_size
+
+    def set_update_size(self, update_size):
+        self.update_size = update_size
+
+    def set_game_state_board_shape(self, game_state_board_shape):
+        self.game_state_board_shape = game_state_board_shape
+
+    def set_game_state_statistic_size(self, game_state_statistic_size):
+        self.game_state_statistic_size = game_state_statistic_size
+
+    def set_update_statistic_size(self, update_statistic_size):
+        self.update_statistic_size = update_statistic_size
+
+    def set_seed_size(self, seed_size):
+        self.seed_size = seed_size
+
     def _empty_statistic(self, training, global_step, seed, game_state_board,
                          game_state_statistic):
         raise NotImplementedError
