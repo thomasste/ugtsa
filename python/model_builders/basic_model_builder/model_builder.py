@@ -6,20 +6,19 @@ import numpy as np
 
 
 class ModelBuilder(model_builder.ModelBuilder):
-    def __init__(
-            self, player_count, worker_count, statistic_size, update_size,
-            game_state_board_shape, game_state_statistic_size,
-            update_statistic_size, seed_size,
-            empty_statistic_filter_shapes,
-            empty_statistic_window_shapes,
-            empty_statistic_hidden_output_sizes,
-            move_rate_hidden_output_sizes,
-            game_state_as_update_hidden_output_sizes,
-            updated_statistic_lstm_state_sizes,
-            updated_statistic_hidden_output_sizes,
-            updated_update_hidden_output_sizes,
-            cost_function_ucb_half_life,
-            cost_function_regularization_factor):
+    def __init__(self, player_count, worker_count, statistic_size, update_size,
+                 game_state_board_shape, game_state_statistic_size,
+                 update_statistic_size, seed_size,
+                 empty_statistic_filter_shapes,
+                 empty_statistic_window_shapes,
+                 empty_statistic_hidden_output_sizes,
+                 move_rate_hidden_output_sizes,
+                 game_state_as_update_hidden_output_sizes,
+                 updated_statistic_lstm_state_sizes,
+                 updated_statistic_hidden_output_sizes,
+                 updated_update_hidden_output_sizes,
+                 cost_function_ucb_half_life,
+                 cost_function_regularization_factor):
         super().__init__(
             player_count, worker_count, statistic_size, update_size,
             game_state_board_shape, game_state_statistic_size,
@@ -43,8 +42,8 @@ class ModelBuilder(model_builder.ModelBuilder):
         self.cost_function_regularization_factor = \
             cost_function_regularization_factor
 
-    def _empty_statistic_transformation(
-            self, seed, game_state_board, game_state_statistic):
+    def _empty_statistic(self, training, global_step, seed, game_state_board,
+                         game_state_statistic):
         signal = tf.expand_dims(game_state_board, -1)
         print(signal.get_shape())
 
@@ -74,13 +73,13 @@ class ModelBuilder(model_builder.ModelBuilder):
                 signal = bias_layer(signal)
                 signal = activation_layer(signal)
                 seed, signal = dropout_layer(
-                    seed, signal, training=self.training)
+                    seed, signal, training=training)
                 print(signal.get_shape())
 
         return signal
 
-    def _move_rate_transformation(
-            self, seed, parent_statistic, child_statistic):
+    def _move_rate(self, training, global_step, seed, parent_statistic,
+                   child_statistic):
         signal = tf.concat([parent_statistic, child_statistic], axis=1)
         print(signal.get_shape())
 
@@ -91,7 +90,7 @@ class ModelBuilder(model_builder.ModelBuilder):
                 signal = bias_layer(signal)
                 signal = activation_layer(signal)
                 seed, signal = dropout_layer(
-                    seed, signal, training=self.training)
+                    seed, signal, training=training)
                 print(signal.get_shape())
 
         signal = dense_layer(signal, self.player_count)
@@ -101,7 +100,8 @@ class ModelBuilder(model_builder.ModelBuilder):
 
         return signal
 
-    def _game_state_as_update_transformation(self, seed, update_statistic):
+    def _game_state_as_update(self, training, global_step, seed,
+                              update_statistic):
         signal = update_statistic
         print(signal.get_shape())
 
@@ -113,13 +113,13 @@ class ModelBuilder(model_builder.ModelBuilder):
                 signal = bias_layer(signal)
                 signal = activation_layer(signal)
                 seed, signal = dropout_layer(
-                    seed, signal, training=self.training)
+                    seed, signal, training=training)
                 print(signal.get_shape())
 
         return signal
 
-    def _updated_statistic_transformation(
-            self, seed, statistic, update_count, updates):
+    def _updated_statistic(self, training, global_step, seed, statistic,
+                           update_count, updates):
         inputs = [
             updates[:, i*self.update_size: (i+1)*self.update_size]
             for i in range(self.worker_count)]
@@ -164,12 +164,12 @@ class ModelBuilder(model_builder.ModelBuilder):
                 signal = bias_layer(signal)
                 signal = activation_layer(signal)
                 seed, signal = dropout_layer(
-                    seed, signal, training=self.training)
+                    seed, signal, training=training)
                 print(signal.get_shape())
 
         return signal
 
-    def _updated_update_transformation(self, seed, update, statistic):
+    def _updated_update(self, training, global_step, seed, update, statistic):
         signal = tf.concat([update, statistic], axis=1)
         print(signal.get_shape())
 
@@ -181,20 +181,20 @@ class ModelBuilder(model_builder.ModelBuilder):
                 signal = bias_layer(signal)
                 signal = activation_layer(signal)
                 seed, signal = dropout_layer(
-                    seed, signal, training=self.training)
+                    seed, signal, training=training)
                 print(signal.get_shape())
 
         return signal
 
-    def _cost_function_transformation(
-            self, move_rate, ucb_move_rate, ugtsa_move_rate,
-            trainable_variables):
+    def _cost_function(self, training, global_step, move_rate, ucb_move_rate,
+                       ugtsa_move_rate, trainable_variables):
         # labels
-        global_step_as_float = tf.cast(self.global_step, tf.float32)
+        global_step_as_float = tf.cast(global_step, tf.float32)
         alpha = 1 - (global_step_as_float /
                      (self.cost_function_ucb_half_life + global_step_as_float))
 
-        ucb_move_rate /= tf.reshape(tf.reduce_sum(ucb_move_rate, axis=1), (-1, 1))
+        ucb_move_rate /= tf.reshape(
+            tf.reduce_sum(ucb_move_rate, axis=1), (-1, 1))
 
         labels = alpha * ucb_move_rate + (1 - alpha) * ugtsa_move_rate
 
@@ -212,7 +212,7 @@ class ModelBuilder(model_builder.ModelBuilder):
         return output_loss + \
             self.cost_function_regularization_factor * regularization_loss
 
-    def _apply_gradients(self, grads_and_vars):
+    def _apply_gradients(self, training, global_step, grads_and_vars):
         optimizer = tf.train.AdamOptimizer()
         return optimizer.apply_gradients(
-            grads_and_vars, self.global_step, 'apply_gradients')
+            grads_and_vars, global_step, 'apply_gradients')

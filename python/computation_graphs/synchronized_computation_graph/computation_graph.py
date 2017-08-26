@@ -19,16 +19,15 @@ class ComputationGraph(computation_graph.ComputationGraph):
         self.lock = Lock()
         self.threads = {}
 
-    def transformation(
-            self, inputs: [tf.Tensor], input_gradients: [tf.Tensor],
-            output: tf.Tensor, output_gradient: tf.Tensor,
-            update_model_gradient_accumulators,
-            seed: tf.Tensor, training: tf.Tensor) \
+    def transformation(self, training: tf.Tensor, seed: tf.Tensor,
+                       inputs: [(tf.Tensor, tf.Tensor)],
+                       output: (tf.Tensor, tf.Tensor),
+                       update_model_gradient_accumulators: [tf.Operation])\
             -> Transformation:
         with self.lock:
             return self.computation_graph.transformation(
-                inputs, input_gradients, output, output_gradient,
-                update_model_gradient_accumulators, seed, training)
+                training, seed, inputs, output,
+                update_model_gradient_accumulators)
 
     def matrix(self, matrix: np.ndarray) -> Node:
         with self.lock:

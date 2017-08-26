@@ -2,7 +2,7 @@ from config import config
 from games.game.game_state import GameState
 from copy import deepcopy
 from algorithms.ucb_mcts.algorithm import Algorithm as UCBAlgorithm
-from computation_graphs.shiftable_computation_graph.computation_graph import \
+from computation_graphs.basic_computation_graph.computation_graph import \
     ComputationGraph
 from model_builders.model_builder.model_builder import ModelBuilder
 
@@ -28,6 +28,7 @@ argument_parser.add_argument('ucb_strength', type=int)
 argument_parser.add_argument('ugtsa_worker_count', type=int)
 argument_parser.add_argument('ugtsa_strength', type=int)
 argument_parser.add_argument('--debug', action='store_true')
+argument_parser.add_argument('--use_initial_state', action='store_true')
 args = argument_parser.parse_args()
 
 game_config = config['games'][args.game]
@@ -43,28 +44,24 @@ with graph.as_default():
     model_builder.build()
 
 config = tf.ConfigProto()
-if args.debug:
-    config.log_device_placement = True
+config.log_device_placement = args.debug
 
 with tf.Session(config=config, graph=graph) as session:
     session.run(tf.global_variables_initializer())
-
-    computation_graph = ComputationGraph(True, session)
-    transformations = ModelBuilder.transformations(
-        computation_graph)
-
     for i in range(args.number_of_iterations):
-        first_node = computation_graph.nodes_shift + \
-                     len(computation_graph.nodes)
-        computation_graph.shift(first_node)
-
         logger.info('{}: global_step {}'.format(i, session.run(
-            graph.get_tensor_by_name('globals/global_step:0'))))
+            graph.get_tensor_by_name('global_step:0'))))
 
-        gs = GameState.random_game_state(game_state)
-        if gs.is_final:
-            gs.undo_move()
-        # gs = game_state
+        if args.use_initial_state:
+            gs = GameState.random_game_state(game_state)
+            if gs.is_final:
+                gs.undo_move()
+        else:
+            gs = deepcopy(game_state)
+
+        computation_graph = ComputationGraph(True)
+        transformations = ModelBuilder.create_transformations(
+            computation_graph)
 
         ucb_begin = time.time()
         ucb_algorithm = UCBAlgorithm(
@@ -97,75 +94,45 @@ with tf.Session(config=config, graph=graph) as session:
 
         gradients_begin = time.time()
         # zero gradient accumulators
-        for name in [
-                'empty_statistic',
-                'move_rate',
-                'game_state_as_update',
-                'updated_statistic',
-                'updated_update',
-                'cost_function']:
-            session.run(tf.get_default_graph().get_operation_by_name(
-                '{}/zero_model_gradient_accumulators'.format(name)))
-
+        ModelBuilder.zero_model_gradient_accumulators()
         if args.debug:
-            for name in [
-                    'empty_statistic',
-                    'move_rate',
-                    'game_state_as_update',
-                    'updated_statistic',
-                    'updated_update',
-                    'cost_function']:
-                trainable_variables = tf.get_collection(
-                    tf.GraphKeys.TRAINABLE_VARIABLES,
-                    '{}/transformation'.format(name))
-                model_gradient_accumulators = tf.get_default_graph()\
-                    .get_collection('{}/model_gradient_accumulators'.format(
-                        name))
-
-                print(session.run(trainable_variables[:2]))
-                print(session.run(model_gradient_accumulators[:2]))
+           ModelBuilder.model_gradient_accumulators_debug_info()
 
         # calculate move rate gradients
         move_rates = ugtsa_algorithm.move_rates()
 
-        move_rate_input = []
-        ucb_move_rate_input = []
-        ugtsa_move_rate_input = []
+        move_rate_values = []
+        ucb_move_rate_values = []
+        ugtsa_move_rate_values = []
         for move_rate, ucb_move_rate in zip(
-                ugtsa_algorithm.move_rates(), ucb_algorithm.move_rates()):
-            move_rate_input += [ugtsa_algorithm.value(move_rate)]
-            ucb_move_rate_input += [ucb_algorithm.value(ucb_move_rate)]
-            ugtsa_move_rate_input += [
+                move_rates, ucb_algorithm.move_rates()):
+            move_rate_values += [ugtsa_algorithm.value(move_rate)]
+            ucb_move_rate_values += [ucb_algorithm.value(ucb_move_rate)]
+            ugtsa_move_rate_values += [
                 np.zeros(gs.player_count, dtype=np.float32)]
 
-        loss, move_rate_gradient = session.run([
-            graph.get_tensor_by_name('cost_function/output:0'),
-            graph.get_tensor_by_name('cost_function/move_rate_gradient:0')],
-            {
-                graph.get_tensor_by_name('cost_function/move_rate:0'):
-                    move_rate_input,
-                graph.get_tensor_by_name('cost_function/ucb_move_rate:0'):
-                    ucb_move_rate_input,
-                graph.get_tensor_by_name('cost_function/ugtsa_move_rate:0'):
-                    ugtsa_move_rate_input
-            })
+        loss, move_rates_gradient = ModelBuilder.cost_function(
+            move_rate_values, ucb_move_rate_values, ugtsa_move_rate_values)
 
         logger.info('{}: loss {}'.format(i, loss))
         if args.debug:
-            print(move_rate_gradient)
+            print(move_rates_gradient)
 
+        # accumulate gradients
         computation_graph.model_gradients(
-            first_node=first_node,
+            first_node=0,
             y_grads={
                 move_rate: gradient
                 for move_rate, gradient in zip(
-                    move_rates, move_rate_gradient)})
+                    move_rates, move_rates_gradient)})
 
-        session.run(graph.get_operation_by_name(
-            'apply_gradients/apply_gradients'))
+        # apply gradients
+        ModelBuilder.apply_gradients()
+        if args.debug:
+            ModelBuilder.model_gradient_accumulators_debug_info()
         gradients_end = time.time()
-        logger.info(
-            '{}: gradients took {}'.format(i, gradients_end - gradients_begin))
+        logger.info('{}: gradients took {}'.format(
+            i, gradients_end - gradients_begin))
 
         # debug
         print([x.number_of_visits for x in ucb_algorithm.tree[:20]])
@@ -174,20 +141,3 @@ with tf.Session(config=config, graph=graph) as session:
         if args.debug:
             print(ucb_algorithm.tree[:20])
             print(ugtsa_algorithm.tree[:20])
-
-            for name in [
-                    'empty_statistic',
-                    'move_rate',
-                    'game_state_as_update',
-                    'updated_statistic',
-                    'updated_update',
-                    'cost_function']:
-                trainable_variables = tf.get_collection(
-                    tf.GraphKeys.TRAINABLE_VARIABLES,
-                    '{}/transformation'.format(name))
-                model_gradient_accumulators = tf.get_default_graph()\
-                    .get_collection('{}/model_gradient_accumulators'.format(
-                        name))
-
-                print(session.run(trainable_variables[:2]))
-                print(session.run(model_gradient_accumulators[:2]))
