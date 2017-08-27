@@ -51,28 +51,27 @@ class ModelBuilder(model_builder.ModelBuilder):
         self.seed_size = seed_size
         self.model_builder.set_seed_size(seed_size)
 
-    def _empty_statistic(self, training, global_step, seed, game_state_board,
+    def _empty_statistic(self, training, seed, game_state_board,
                          game_state_statistic):
         return self.model_builder._empty_statistic(
-            training, global_step, seed, game_state_board,
+            training, seed, game_state_board,
             game_state_statistic)
 
-    def _move_rate(self, training, global_step, seed, parent_statistic,
+    def _move_rate(self, training, seed, parent_statistic,
                    child_statistic):
         return self.model_builder._move_rate(
-            training, global_step, seed, parent_statistic, child_statistic)
+            training, seed, parent_statistic, child_statistic)
 
-    def _game_state_as_update(self, training, global_step, seed,
-                              update_statistic):
+    def _game_state_as_update(self, training, seed, update_statistic):
         return self.model_builder._game_state_as_update(
-            training, global_step, seed, update_statistic)
+            training, seed, update_statistic)
 
-    def _updated_statistic(self, training, global_step, seed, statistic,
-                           update_count, updates):
+    def _updated_statistic(self, training, seed, statistic, update_count,
+                           updates):
         return self.model_builder._updated_statistic(
-            training, global_step, seed, statistic, update_count, updates)
+            training, seed, statistic, update_count, updates)
 
-    def _updated_update(self, training, global_step, seed, update, statistic):
+    def _updated_update(self, training, seed, update, statistic):
         split = tf.split(
             update, self.updated_update_lstm_state_sizes * 2, 1)
 
@@ -94,12 +93,12 @@ class ModelBuilder(model_builder.ModelBuilder):
 
         return tf.concat(new_states + new_outputs, axis=1)
 
-    def _cost_function(self, training, global_step, move_rate, ucb_move_rate,
+    def _cost_function(self, global_step, move_rate, ucb_move_rate,
                        ugtsa_move_rate, trainable_variables):
         return self.model_builder._cost_function(
-            training, global_step, move_rate, ucb_move_rate, ugtsa_move_rate,
+            global_step, move_rate, ucb_move_rate, ugtsa_move_rate,
             trainable_variables)
 
-    def _apply_gradients(self, training, global_step, grads_and_vars):
+    def _apply_gradients(self, global_step, grads_and_vars):
         return self.model_builder._apply_gradients(
-            training, global_step, grads_and_vars)
+            global_step, grads_and_vars)

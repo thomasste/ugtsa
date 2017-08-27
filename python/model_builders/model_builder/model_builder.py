@@ -8,10 +8,11 @@ import itertools
 
 class ModelBuilder(object):
     def __init__(
-            self, player_count, worker_count, statistic_size, update_size,
-            game_state_board_shape, game_state_statistic_size,
-            update_statistic_size, seed_size):
+            self, player_count, worker_count,
+            statistic_size, update_size, game_state_board_shape,
+            game_state_statistic_size, update_statistic_size, seed_size):
         self.player_count = player_count
+        self.game_state_count = 10
         self.worker_count = worker_count
         self.statistic_size = statistic_size
         self.update_size = update_size
@@ -44,30 +45,29 @@ class ModelBuilder(object):
     def set_seed_size(self, seed_size):
         self.seed_size = seed_size
 
-    def _empty_statistic(self, training, global_step, seed, game_state_board,
+    def _empty_statistic(self, training, seed, game_state_board,
                          game_state_statistic):
         raise NotImplementedError
 
-    def _move_rate(self, training, global_step, seed, parent_statistic,
+    def _move_rate(self, training, seed, parent_statistic,
                    child_statistic):
         raise NotImplementedError
 
-    def _game_state_as_update(self, training, global_step, seed,
-                              update_statistic):
+    def _game_state_as_update(self, training, seed, update_statistic):
         raise NotImplementedError
 
-    def _updated_statistic(self, training, global_step, seed, statistic,
-                           update_count, updates):
+    def _updated_statistic(self, training, seed, statistic, update_count,
+                           updates):
         raise NotImplementedError
 
-    def _updated_update(self, training, global_step, seed, update, statistic):
+    def _updated_update(self, training, seed, update, statistic):
         raise NotImplementedError
 
-    def _cost_function(self, training, global_step, move_rate, ucb_move_rate,
+    def _cost_function(self, global_step, move_rate, ucb_move_rate,
                        ugtsa_move_rate, trainable_variables):
         raise NotImplementedError
 
-    def _apply_gradients(self, training, global_step, grads_and_vars):
+    def _apply_gradients(self, global_step, grads_and_vars):
         raise NotImplementedError
 
     @staticmethod
@@ -100,198 +100,197 @@ class ModelBuilder(object):
                 '{}/model_gradient_accumulators'.format(variable_scope.name)),
             'zero_model_gradient_accumulators')
 
-    def __build_empty_statistic_graph(self, training, global_step):
-        print('empty_statistic')
-        with tf.variable_scope('empty_statistic') as variable_scope:
-            seed = tf.placeholder(
-                tf.int64,
-                [self.seed_size],
-                'seed')
-            game_state_board = tf.placeholder(
-                tf.float32,
-                [None,
-                 self.game_state_board_shape[0],
-                 self.game_state_board_shape[1]],
-                'game_state_board')
-            game_state_statistic = tf.placeholder(
-                tf.float32,
-                [None, self.game_state_statistic_size],
-                'game_state_statistic')
+    def __build_function_graph(self, name, inputs, output, transformation):
+        print(name)
+        with tf.variable_scope(name) as variable_scope:
+            placeholders = {
+                'training': tf.placeholder(
+                    tf.bool,
+                    [None],
+                    'training'),
+                'index': tf.placeholder(
+                    tf.int32,
+                    [None],
+                    'index'),
+                'seed': tf.placeholder(
+                    tf.int64,
+                    [None, self.seed_size],
+                    'seed'),
+                'output_gradient': tf.placeholder(
+                    tf.float32,
+                    [None] + output['shape'],
+                    'output_gradient'),
+                'batch_size': tf.placeholder(
+                    tf.int32,
+                    [None],
+                    'batch_size'),
+                **{
+                    input_name: tf.placeholder(
+                        inputs[input_name]['type'],
+                        [None] + inputs[input_name]['shape'],
+                        input_name)
+                    for input_name in inputs
+                }
+            }
 
-            with tf.variable_scope('transformation') as \
+            # FORWARD
+            input_queue = tf.FIFOQueue(
+                capacity=self.game_state_count * self.worker_count,
+                dtypes=[tf.int32, tf.bool, tf.int64] + [
+                    inputs[input_name]['type']
+                    for input_name in inputs],
+                shapes=[[], [], [self.seed_size]] + [
+                    inputs[input_name]['shape']
+                    for input_name in inputs],
+                names=['index', 'training', 'seed'] + [
+                    input_name
+                    for input_name in inputs])
+
+            output_queue = tf.FIFOQueue(
+                capacity=self.game_state_count * self.worker_count,
+                dtypes=[tf.int32, tf.int32, tf.float32],
+                shapes=[[], [], self.statistic_size],
+                names=['index', 'batch_index', 'output'])
+
+            # create input
+            input_queue.enqueue_many({
+                'training': placeholders['training'],
+                'index': placeholders['index'],
+                'seed': placeholders['seed'],
+                **{
+                    input_name: placeholders[input_name]
+                    for input_name in inputs
+                }}, 'forward_enqueue')
+
+            # create flow
+            batch_size = input_queue.size()
+            batch = input_queue.dequeue_many(batch_size)
+
+            with tf.variable_scope('transformation'):
+                signal = tf.cond(
+                    tf.size(batch['index']) > 0,
+                    lambda: transformation(**{
+                        'training': batch['training'][0],
+                        'seed': batch['seed'][0],
+                        **{input_name: batch[input_name]
+                           for input_name in inputs}}),
+                    lambda: tf.zeros((0, self.statistic_size), tf.float32))
+
+            batch_index = tf.cond(
+                tf.size(batch['index']) > 0,
+                lambda: tf.tile([batch['index'][0]], [batch_size]),
+                lambda: tf.zeros((0,), tf.int32))
+
+            enqueue_op = output_queue.enqueue_many({
+                'index': batch['index'],
+                'batch_index': batch_index,
+                'output': signal
+            })
+
+            queue_runner = tf.train.QueueRunner(output_queue, enqueue_op)
+            tf.train.add_queue_runner(queue_runner)
+
+            # create output
+            o = output_queue.dequeue_many(output_queue.size())
+            tf.identity(o['index'], 'forward_output_index')
+            tf.identity(o['batch_index'], 'forward_output_batch_index')
+            tf.identity(o['output'], 'forward_output_output')
+
+            # BACKWARD
+            # queues
+            batch_size_queue = tf.FIFOQueue(
+                capacity=100,
+                dtypes=[tf.int32],
+                shapes=[[]])
+
+            input_queue = tf.FIFOQueue(
+                capacity=self.game_state_count * self.worker_count,
+                dtypes=[tf.int32, tf.bool, tf.int64, tf.float32] + [
+                    inputs[input_name]['type']
+                    for input_name in inputs],
+                shapes=[[], [], [self.seed_size], output['shape']] + [
+                    inputs[input_name]['shape']
+                    for input_name in inputs],
+                names=['index', 'training', 'seed', 'output_gradient'] + [
+                    input_name
+                    for input_name in inputs])
+
+            output_queue = tf.FIFOQueue(
+                capacity=100,
+                dtypes=[tf.int32] + [inputs[input_name]['type']
+                                     for input_name in inputs
+                                     if inputs[input_name]['differentiable']],
+                shapes=[[]] + [inputs[input_name]['shape']
+                               for input_name in inputs
+                               if inputs[input_name]['differentiable']],
+                names=['index'] + [input_name + '_gradient'
+                                   for input_name in inputs
+                                   if inputs[input_name]['differentiable']])
+
+            # create input
+            batch_size_queue.enqueue_many(
+                placeholders['batch_size'], 'backward_enqueue_batch_size')
+
+            input_queue.enqueue_many({
+                'index': placeholders['index'],
+                'training': placeholders['training'],
+                'seed': placeholders['seed'],
+                'output_gradient': placeholders['output_gradient'],
+                **{
+                    input_name: placeholders[input_name]
+                    for input_name in inputs
+                }}, 'backward_enqueue_input')
+
+            # create flow
+            batch_size = batch_size_queue.dequeue()
+            batch = input_queue.dequeue_many(batch_size)
+
+            with tf.variable_scope('transformation', reuse=True) as \
                     transformation_variable_scope:
-                signal = self._empty_statistic(
-                    training, global_step,
-                    seed, game_state_board, game_state_statistic)
+                signal = transformation(**{
+                    'training': batch['training'][0],
+                    'seed': batch['seed'][0],
+                    **{input_name: batch[input_name]
+                       for input_name in inputs}})
 
-            output = tf.identity(signal, 'output')
+            input_gradients = tf.gradients(
+                signal,
+                [batch[input_name]
+                 for input_name in inputs
+                 if inputs[input_name]['differentiable']],
+                batch['output_gradient'])
 
-            output_gradient = tf.placeholder(
-                tf.float32,
-                [None, self.statistic_size],
-                'output_gradient')
+            print([input_name
+                   for input_name in inputs
+                   if inputs[input_name]['differentiable']])
+            print(input_gradients)
 
             self.__model_gradients(
-                variable_scope, transformation_variable_scope, output,
-                output_gradient)
+                variable_scope, transformation_variable_scope, signal,
+                batch['output_gradient'])
 
-    def __build_move_rate_graph(self, training, global_step):
-        print('move_rate')
-        with tf.variable_scope('move_rate') as variable_scope:
-            seed = tf.placeholder(
-                tf.int64,
-                [self.seed_size],
-                'seed')
-            parent_statistic = tf.placeholder(
-                tf.float32,
-                [None, self.statistic_size],
-                'parent_statistic')
-            child_statistic = tf.placeholder(
-                tf.float32,
-                [None, self.statistic_size],
-                'child_statistic')
+            with tf.control_dependencies(
+                    tf.get_collection(
+                        '{}/update_model_gradient_accumulators'.format(name))):
+                enqueue_op = output_queue.enqueue_many({
+                    'index': batch['index'],
+                    **{
+                        input_name + '_gradient': input_gradient
+                        for input_name, input_gradient in zip(
+                            [input_name
+                             for input_name in inputs
+                             if inputs[input_name]['differentiable']],
+                            input_gradients)
+                    }})
+                queue_runner = tf.train.QueueRunner(output_queue, enqueue_op)
+                tf.train.add_queue_runner(queue_runner)
 
-            with tf.variable_scope('transformation') as \
-                    transformation_variable_scope:
-                signal = self._move_rate(
-                    training, global_step,
-                    seed, parent_statistic, child_statistic)
+            # create output
+            outputs = output_queue.dequeue_many(output_queue.size())
+            for output_name, output in outputs.items():
+                tf.identity(output, 'backward_output_' + output_name)
 
-            output = tf.identity(signal, 'output')
-
-            output_gradient = tf.placeholder(
-                tf.float32,
-                [None, self.player_count],
-                'output_gradient')
-
-            parent_statistic_gradient, child_statistic_gradient = \
-                tf.gradients(
-                    output, [parent_statistic, child_statistic],
-                    output_gradient)
-            tf.identity(
-                parent_statistic_gradient, 'parent_statistic_gradient')
-            tf.identity(
-                child_statistic_gradient, 'child_statistic_gradient')
-
-            self.__model_gradients(
-                variable_scope, transformation_variable_scope, output,
-                output_gradient)
-
-    def __build_game_state_as_update_graph(self, training, global_step):
-        print('game_state_as_update')
-        with tf.variable_scope('game_state_as_update') as variable_scope:
-            seed = tf.placeholder(
-                tf.int64,
-                [self.seed_size],
-                'seed')
-            update_statistic = tf.placeholder(
-                tf.float32,
-                [None, self.update_statistic_size],
-                'update_statistic')
-
-            with tf.variable_scope('transformation') as \
-                    transformation_variable_scope:
-                signal = self._game_state_as_update(
-                    training, global_step,
-                    seed, update_statistic)
-
-            output = tf.identity(signal, 'output')
-
-            output_gradient = tf.placeholder(
-                tf.float32,
-                [None, self.update_size],
-                'output_gradient')
-
-            update_statistic_gradient, = tf.gradients(
-                output, [update_statistic], output_gradient)
-            tf.identity(
-                update_statistic_gradient, 'update_statistic_gradient')
-
-            self.__model_gradients(
-                variable_scope, transformation_variable_scope, output,
-                output_gradient)
-
-    def __build_updated_statistic_graph(self, training, global_step):
-        print('updated_statistic')
-        with tf.variable_scope('updated_statistic') as variable_scope:
-            seed = tf.placeholder(
-                tf.int64,
-                [self.seed_size],
-                'seed')
-            statistic = tf.placeholder(
-                tf.float32,
-                [None, self.statistic_size],
-                'statistic')
-            update_count = tf.placeholder(
-                tf.int32,
-                [None],
-                'update_count')
-            updates = tf.placeholder(
-                tf.float32,
-                [None, self.update_size * self.worker_count],
-                'updates')
-
-            with tf.variable_scope('transformation') as \
-                    transformation_variable_scope:
-                signal = self._updated_statistic(
-                    training, global_step,
-                    seed, statistic, update_count, updates)
-
-            output = tf.identity(signal, 'output')
-
-            output_gradient = tf.placeholder(
-                tf.float32,
-                [None, self.statistic_size],
-                'output_gradient')
-
-            statistic_gradient, updates_gradient = tf.gradients(
-                output, [statistic, updates], output_gradient)
-            tf.identity(statistic_gradient, 'statistic_gradient')
-            tf.identity(updates_gradient, 'updates_gradient')
-
-            self.__model_gradients(
-                variable_scope, transformation_variable_scope, output,
-                output_gradient)
-
-    def __build_updated_update_graph(self, training, global_step):
-        print('updated_update')
-        with tf.variable_scope('updated_update') as variable_scope:
-            seed = tf.placeholder(
-                tf.int64,
-                [self.seed_size],
-                'seed')
-            update = tf.placeholder(
-                tf.float32,
-                [None, self.update_size],
-                'update')
-            statistic = tf.placeholder(
-                tf.float32,
-                [None, self.statistic_size],
-                'statistic')
-
-            with tf.variable_scope('transformation') as \
-                    transformation_variable_scope:
-                signal = self._updated_update(
-                    training, global_step,
-                    seed, update, statistic)
-
-            output = tf.identity(signal, 'output')
-
-            output_gradient = tf.placeholder(
-                tf.float32,
-                [None, self.update_size],
-                'output_gradient')
-
-            statistic_gradient, update_gradient = tf.gradients(
-                output, [statistic, update], output_gradient)
-            tf.identity(statistic_gradient, 'statistic_gradient')
-            tf.identity(update_gradient, 'update_gradient')
-
-            self.__model_gradients(
-                variable_scope, transformation_variable_scope, output,
-                output_gradient)
-
-    def __build_cost_function_graph(self, training, global_step):
+    def __build_cost_function_graph(self, global_step):
         print('cost_function')
         with tf.variable_scope('cost_function') as variable_scope:
             move_rates = tf.placeholder(
@@ -321,7 +320,7 @@ class ModelBuilder(object):
             with tf.variable_scope('transformation') as \
                     transformation_variable_scope:
                 signal = self._cost_function(
-                    training, global_step,
+                    global_step,
                     move_rates, ucb_move_rates, ugtsa_move_rates,
                     trainable_variables)
 
@@ -333,9 +332,14 @@ class ModelBuilder(object):
             self.__model_gradients(
                 variable_scope, transformation_variable_scope, output, 1)
 
-    def __build_apply_gradients_graph(self, training, global_step):
+    def __build_apply_gradients_graph(self, global_step):
         print('apply_gradients')
         with tf.variable_scope('apply_gradients'):
+            training = tf.placeholder(
+                tf.bool,
+                [],
+                'training')
+
             grads_and_vars = []
 
             for name in [
@@ -356,7 +360,7 @@ class ModelBuilder(object):
                 grads_and_vars += list(
                     zip(model_gradient_accumulators, trainable_variables))
 
-            self._apply_gradients(training, global_step, grads_and_vars)
+            self._apply_gradients(global_step, grads_and_vars)
 
     def build(self):
         training = tf.placeholder(tf.bool, name='training')
@@ -364,13 +368,96 @@ class ModelBuilder(object):
             initial_value=0, trainable=False, dtype=tf.int32,
             name='global_step')
 
-        self.__build_empty_statistic_graph(training, global_step)
-        self.__build_move_rate_graph(training, global_step)
-        self.__build_game_state_as_update_graph(training, global_step)
-        self.__build_updated_statistic_graph(training, global_step)
-        self.__build_updated_update_graph(training, global_step)
-        self.__build_cost_function_graph(training, global_step)
-        self.__build_apply_gradients_graph(training, global_step)
+        self.__build_function_graph(
+            name='empty_statistic',
+            inputs={
+                'game_state_board': {
+                    'type': tf.float32,
+                    'shape': [self.game_state_board_shape[0],
+                              self.game_state_board_shape[1]],
+                    'differentiable': False
+                },
+                'game_state_statistic': {
+                    'type': tf.float32,
+                    'shape': [self.game_state_statistic_size],
+                    'differentiable': False
+                }
+            },
+            output={'shape': [self.statistic_size]},
+            transformation=self._empty_statistic)
+
+        self.__build_function_graph(
+            name='move_rate',
+            inputs={
+                'parent_statistic': {
+                    'type': tf.float32,
+                    'shape': [self.statistic_size],
+                    'differentiable': True
+                },
+                'child_statistic': {
+                    'type': tf.float32,
+                    'shape': [self.statistic_size],
+                    'differentiable': True
+                }
+            },
+            output={'shape': [self.player_count]},
+            transformation=self._move_rate)
+
+        self.__build_function_graph(
+            name='game_state_as_update',
+            inputs={
+                'update_statistic': {
+                    'type': tf.float32,
+                    'shape': [self.update_statistic_size],
+                    'differentiable': False
+                }
+            },
+            output={'shape': [self.update_size]},
+            transformation=self._game_state_as_update)
+
+        self.__build_function_graph(
+            name='updated_statistic',
+            inputs={
+                'statistic': {
+                    'type': tf.float32,
+                    'shape': [self.statistic_size],
+                    'differentiable': True
+                },
+                'update_count': {
+                    'type': tf.int32,
+                    'shape': [],
+                    'differentiable': False
+                },
+                'updates': {
+                    'type': tf.float32,
+                    'shape': [self.update_size * self.worker_count],
+                    'differentiable': True
+                }
+            },
+            output={'shape': [self.statistic_size]},
+            transformation=self._updated_statistic)
+
+        self.__build_function_graph(
+            name='updated_update',
+            inputs={
+                'update': {
+                    'type': tf.float32,
+                    'shape': [self.update_size],
+                    'differentiable': True
+                },
+                'statistic': {
+                    'type': tf.float32,
+                    'shape': [self.statistic_size],
+                    'differentiable': True
+                }
+            },
+            output={'shape': [self.update_size]},
+            transformation=self._updated_update)
+
+        self.__build_cost_function_graph(global_step)
+        self.__build_apply_gradients_graph(global_step)
+
+        exit(0)
 
     @classmethod
     def create_transformation(cls, computation_graph: ComputationGraph,

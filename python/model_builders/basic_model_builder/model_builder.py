@@ -42,7 +42,7 @@ class ModelBuilder(model_builder.ModelBuilder):
         self.cost_function_regularization_factor = \
             cost_function_regularization_factor
 
-    def _empty_statistic(self, training, global_step, seed, game_state_board,
+    def _empty_statistic(self, training, seed, game_state_board,
                          game_state_statistic):
         signal = tf.expand_dims(game_state_board, -1)
         print(signal.get_shape())
@@ -78,7 +78,7 @@ class ModelBuilder(model_builder.ModelBuilder):
 
         return signal
 
-    def _move_rate(self, training, global_step, seed, parent_statistic,
+    def _move_rate(self, training, seed, parent_statistic,
                    child_statistic):
         signal = tf.concat([parent_statistic, child_statistic], axis=1)
         print(signal.get_shape())
@@ -100,8 +100,7 @@ class ModelBuilder(model_builder.ModelBuilder):
 
         return signal
 
-    def _game_state_as_update(self, training, global_step, seed,
-                              update_statistic):
+    def _game_state_as_update(self, training, seed, update_statistic):
         signal = update_statistic
         print(signal.get_shape())
 
@@ -118,8 +117,8 @@ class ModelBuilder(model_builder.ModelBuilder):
 
         return signal
 
-    def _updated_statistic(self, training, global_step, seed, statistic,
-                           update_count, updates):
+    def _updated_statistic(self, training, seed, statistic, update_count,
+                           updates):
         inputs = [
             updates[:, i*self.update_size: (i+1)*self.update_size]
             for i in range(self.worker_count)]
@@ -127,13 +126,17 @@ class ModelBuilder(model_builder.ModelBuilder):
         for index, state_size in enumerate(
                 self.updated_statistic_lstm_state_sizes):
             with tf.variable_scope('lstm_layer_{}'.format(index)):
-                states = [tf.tile(tf.Variable(
-                    name='initial_state',
-                    initial_value=tf.zeros((1, state_size))),
+                states = [tf.tile(tf.get_variable(
+                    'initial_state',
+                    (1, state_size),
+                    tf.float32,
+                    tf.zeros_initializer()),
                     [tf.shape(updates)[0], 1])]
-                outputs = [tf.tile(tf.Variable(
-                    name='initial_output',
-                    initial_value=tf.zeros((1, state_size))),
+                outputs = [tf.tile(tf.get_variable(
+                    'initial_output',
+                    (1, state_size),
+                    tf.float32,
+                    tf.zeros_initializer()),
                     [tf.shape(updates)[0], 1])]
 
                 for i in range(self.worker_count):
@@ -169,7 +172,7 @@ class ModelBuilder(model_builder.ModelBuilder):
 
         return signal
 
-    def _updated_update(self, training, global_step, seed, update, statistic):
+    def _updated_update(self, training, seed, update, statistic):
         signal = tf.concat([update, statistic], axis=1)
         print(signal.get_shape())
 
@@ -186,7 +189,7 @@ class ModelBuilder(model_builder.ModelBuilder):
 
         return signal
 
-    def _cost_function(self, training, global_step, move_rate, ucb_move_rate,
+    def _cost_function(self, global_step, move_rate, ucb_move_rate,
                        ugtsa_move_rate, trainable_variables):
         # labels
         global_step_as_float = tf.cast(global_step, tf.float32)
@@ -212,7 +215,7 @@ class ModelBuilder(model_builder.ModelBuilder):
         return output_loss + \
             self.cost_function_regularization_factor * regularization_loss
 
-    def _apply_gradients(self, training, global_step, grads_and_vars):
+    def _apply_gradients(self, global_step, grads_and_vars):
         optimizer = tf.train.AdamOptimizer()
         return optimizer.apply_gradients(
             grads_and_vars, global_step, 'apply_gradients')
