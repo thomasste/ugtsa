@@ -1,6 +1,6 @@
 #pragma once
 
-#include "algorithms/generalized_mcts/algorithm.h"
+#include "ugtsa/algorithms/generalized_mcts/algorithm.h"
 
 namespace algorithms {
 namespace ucb_mcts {

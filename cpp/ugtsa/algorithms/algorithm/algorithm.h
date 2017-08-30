@@ -1,6 +1,6 @@
 #pragma once
 
-#include "games/game/game_state.h"
+#include "ugtsa/games/game/game_state.h"
 
 #include <eigen3/Eigen/Dense>
 #include <limits>

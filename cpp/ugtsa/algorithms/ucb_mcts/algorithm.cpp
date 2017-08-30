@@ -1,4 +1,4 @@
-#include "algorithms/ucb_mcts/algorithm.h"
+#include "ugtsa/algorithms/ucb_mcts/algorithm.h"
 #include <iostream>
 
 namespace algorithms {

@@ -1,14 +1,14 @@
 #pragma once
 
-#include "games/game/game_state.h"
+#include "ugtsa/games/game/game_state.h"
 
 namespace games {
 namespace omringa {
 
 class GameState : public games::game::GameState {
     struct Position {
-        int x = -1;
-        int y = -1;
+        int x;
+        int y;
     };
 
     enum State {

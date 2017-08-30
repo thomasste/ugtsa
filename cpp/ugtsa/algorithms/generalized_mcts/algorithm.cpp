@@ -1,4 +1,4 @@
-#include "algorithms/generalized_mcts/algorithm.h"
+#include "ugtsa/algorithms/generalized_mcts/algorithm.h"
 #include <algorithm>
 #include <iostream>
 

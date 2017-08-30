@@ -1,6 +1,6 @@
 #pragma once
 
-#include "algorithms/algorithm/algorithm.h"
+#include "ugtsa/algorithms/algorithm/algorithm.h"
 #include <memory>
 
 namespace algorithms {
@@ -14,16 +14,16 @@ private:
     };
 
     struct Worker {
-        int node = -1;
+        int node;
         Direction direction;
         std::unique_ptr<games::game::GameState> game_state;
         int update;
     };
 
     struct Node {
-        int number_of_visits = -1;
-        int parent = -1;
-        int children[2] = {-1, -1};
+        int number_of_visits;
+        int parent;
+        int children[2];
         int statistic;
         int move_rate_cache;
     };

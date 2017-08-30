@@ -1,6 +1,6 @@
 #include <iostream>
-#include "games/omringa/game_state.h"
-#include "algorithms/ucb_mcts/algorithm.h"
+#include "ugtsa/games/omringa/game_state.h"
+#include "ugtsa/algorithms/ucb_mcts/algorithm.h"
 
 using namespace std;
 
