@@ -1,4 +1,5 @@
 #include "ugtsa/games/omringa/game_state.h"
+
 #include <iostream>
 
 namespace games {

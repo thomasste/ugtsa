@@ -1,6 +1,7 @@
 #pragma once
 
 #include "ugtsa/algorithms/algorithm/algorithm.h"
+
 #include <memory>
 
 namespace algorithms {

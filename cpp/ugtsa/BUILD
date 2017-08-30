@@ -20,7 +20,8 @@ cc_binary(
     name = "ugtsa",
     srcs = ["main.cpp"],
     deps = [
-        "//tensorflow/core:tensorflow",
         ":foo",
+        "//tensorflow/core:tensorflow",
+        "//third_party/eigen3",
     ]
 )
