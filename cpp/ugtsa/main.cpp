@@ -134,5 +134,10 @@ int main(int argc, char* argv[]) {
         std::cout << status.ToString() << std::endl;
     }
 
+    status = session->Close();
+    if (!status.ok()) {
+        std::cout << status.ToString() << std::endl;
+    }
+
     return 0;
 }
