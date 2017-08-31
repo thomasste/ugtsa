@@ -21,17 +21,17 @@ int main(int argc, char* argv[]) {
 //             gs.apply_move(std::uniform_int_distribution<int>(0, gs.move_count() - 1)(generator));
 //         } else {
 //             auto a = algorithms::ucb_mcts::Algorithm(&gs, 10, 5, std::vector<int>(), std::sqrt(2.));
-//             for (int i = 0; i < 50012; i++) {
+//             for (int i = 0; i < 500000; i++) {
 //                 a.improve();
 //             }
-//             std::cout << a << std::endl;
+//             //std::cout << a << std::endl;
 //             gs.apply_move(a.best_move());
 //         }
 //     }
 
 //     std::cout << gs.payoff() << std::endl;
 
-//     cout << "Hello World!" << endl;
+//     std::cout << "Hello World!" << std::endl;
 //     return 0;
 
     tensorflow::Session* session;
