@@ -26,9 +26,9 @@ public:
         std::vector<tensorflow::DataType> input_types,
         std::vector<std::string> input_gradients,
         std::string output,
-        std::vector<int> ouptut_shape,
+        std::vector<int> output_shape,
         tensorflow::DataType output_type,
-        std::vector<std::string> output_gradient) = 0;
+        std::string output_gradient) = 0;
     virtual int matrix(Eigen::VectorXi vector) = 0;
     virtual int matrix(Eigen::VectorXf vector) = 0;
     virtual int matrix(Eigen::MatrixXi matrix) = 0;

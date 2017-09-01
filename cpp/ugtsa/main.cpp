@@ -1,7 +1,8 @@
 #include "tensorflow/core/public/session.h"
 
-#include "ugtsa/games/omringa/game_state.h"
 #include "ugtsa/algorithms/ucb_mcts/algorithm.h"
+#include "ugtsa/computation_graphs/basic_computation_graph/computation_graph.h"
+#include "ugtsa/games/omringa/game_state.h"
 
 #include <iostream>
 #include <string>
@@ -113,7 +114,7 @@ int main(int argc, char* argv[]) {
     std::cout << payoffs.shape().dim_size(0) << " " << payoffs.shape().dim_size(1) << " " << std::endl;
 
     std::vector<std::pair<std::string, tensorflow::Tensor>> inputs;
-    inputs.push_back(std::make_pair("training", training));
+    inputs.push_back(std::make_pair("training:0", training));
     inputs.push_back(std::make_pair("empty_statistic/seed:0", seed));
     inputs.push_back(std::make_pair("empty_statistic/game_state_board:0", boards));
     inputs.push_back(std::make_pair("empty_statistic/game_state_statistic:0", payoffs));
@@ -132,6 +133,27 @@ int main(int argc, char* argv[]) {
     if (!status.ok()) {
         std::cout << status.ToString() << std::endl;
     }
+
+    computation_graphs::basic_computation_graph::ComputationGraph computation_graph(true, session);
+    auto t = computation_graph.transformation(
+        "training:0",
+        "empty_statistic/seed:0",
+        30,
+        {"empty_statistic/game_state_board:0", "empty_statistic/game_state_statistic:0"},
+        {{7, 7}, {2}},
+        {tensorflow::DataType::DT_FLOAT, tensorflow::DataType::DT_FLOAT},
+        {"", ""},
+        "empty_statistic/output:0",
+        {300},
+        tensorflow::DataType::DT_FLOAT,
+        "empty_statistic/output_gradient:0");
+    auto b1 = computation_graph.matrix(board1);
+    auto b2 = computation_graph.matrix(board2);
+    auto p1 = computation_graph.matrix(payoff1);
+    auto p2 = computation_graph.matrix(payoff2);
+    auto r1 = computation_graph.transformation_run(t, {{b1}, {p1}});
+    auto r2 = computation_graph.transformation_run(t, {{b2}, {p2}});
+    computation_graph.run_batch();
 
     status = session->Close();
     if (!status.ok()) {

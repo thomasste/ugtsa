@@ -16,10 +16,10 @@ class ComputationGraph : public computation_graphs::computation_graph::Computati
         std::vector<tensorflow::DataType> input_types;
         std::vector<std::string> input_gradients;
         std::string output;
-        std::vector<int> ouptut_shape;
+        std::vector<int> output_shape;
         int output_size;
         tensorflow::DataType output_type;
-        std::vector<std::string> output_gradient;
+        std::string output_gradient;
     };
 
     struct Node {
@@ -52,9 +52,9 @@ public:
         std::vector<tensorflow::DataType> input_types,
         std::vector<std::string> input_gradients,
         std::string output,
-        std::vector<int> ouptut_shape,
+        std::vector<int> output_shape,
         tensorflow::DataType output_type,
-        std::vector<std::string> output_gradient);
+        std::string output_gradient);
     int matrix(Eigen::VectorXi vector);
     int matrix(Eigen::VectorXf vector);
     int matrix(Eigen::MatrixXi matrix);
