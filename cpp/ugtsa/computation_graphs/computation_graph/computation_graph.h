@@ -1,9 +1,9 @@
 #pragma once
 
 #include "tensorflow/core/public/session.h"
-#include "tensorflow/core/platform/env.h"
 
-#include <eigen3/Eigen/Dense>
+#include "third_party/eigen3/Eigen/Core"
+
 #include <vector>
 #include <string>
 
@@ -23,10 +23,11 @@ public:
         int seed_size,
         std::vector<std::string> inputs,
         std::vector<std::vector<int>> input_shapes,
-        std::vector<tensorflow::DataTypes> input_types,
+        std::vector<tensorflow::DataType> input_types,
         std::vector<std::string> input_gradients,
         std::string output,
         std::vector<int> ouptut_shape,
+        tensorflow::DataType output_type,
         std::vector<std::string> output_gradient) = 0;
     virtual int matrix(Eigen::VectorXi vector) = 0;
     virtual int matrix(Eigen::VectorXf vector) = 0;

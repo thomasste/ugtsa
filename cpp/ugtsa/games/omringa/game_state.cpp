@@ -120,18 +120,18 @@ Eigen::VectorXf GameState::payoff() const {
     return result;
 }
 
-Eigen::MatrixXf GameState::as_matrix() const {
+Eigen::MatrixXf GameState::matrix() const {
     return board.cast<float>();
 }
 
-Eigen::VectorXf GameState::as_statistics() const {
+Eigen::VectorXf GameState::statistic() const {
     Eigen::VectorXf result(2);
     result << (float) bets[0], (float) bets[1];
 
     return result;
 }
 
-Eigen::VectorXf GameState::as_update_statistics() const {
+Eigen::VectorXf GameState::update_statistic() const {
     return payoff();
 }
 

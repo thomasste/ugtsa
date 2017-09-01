@@ -7,11 +7,16 @@ namespace algorithms {
 namespace computation_graph_mcts {
 
 class Algorithm : public algorithms::generalized_mcts::Algorithm {
-    ComputationGraph *computation_graph;
+    computation_graphs::computation_graph::ComputationGraph *computation_graph;
+    int empty_statistic_;
+    int move_rate_;
+    int game_state_as_update_;
+    int updated_statistic_;
+    int updated_update_;
 
 public:
     Algorithm(games::game::GameState *game_state, int worker_count, int grow_factor, std::vector<int> removed_root_moves,
-              ComputationGraph *computation_graph, int empty_statistic, int move_rate, int game_state_as_update, int updated_statistic, int updated_update);
+              computation_graphs::computation_graph::ComputationGraph *computation_graph, int empty_statistic, int move_rate, int game_state_as_update, int updated_statistic, int updated_update);
 
     Eigen::VectorXf value(int rate);
 

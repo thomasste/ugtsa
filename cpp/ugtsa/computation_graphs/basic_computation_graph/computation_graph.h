@@ -13,11 +13,12 @@ class ComputationGraph : public computation_graphs::computation_graph::Computati
         std::vector<std::string> inputs;
         std::vector<std::vector<int>> input_shapes;
         std::vector<int> input_sizes;
-        std::vector<tensorflow::DataTypes> input_types;
+        std::vector<tensorflow::DataType> input_types;
         std::vector<std::string> input_gradients;
         std::string output;
         std::vector<int> ouptut_shape;
         int output_size;
+        tensorflow::DataType output_type;
         std::vector<std::string> output_gradient;
     };
 
@@ -36,7 +37,7 @@ class ComputationGraph : public computation_graphs::computation_graph::Computati
 
     std::default_random_engine generator;
     std::vector<Transformation> transformations;
-    std::vector<Nodes> nodes;
+    std::vector<Node> nodes;
     std::vector<Batch> batches;
 
 public:
@@ -48,10 +49,11 @@ public:
         int seed_size,
         std::vector<std::string> inputs,
         std::vector<std::vector<int>> input_shapes,
-        std::vector<tensorflow::DataTypes> input_types,
+        std::vector<tensorflow::DataType> input_types,
         std::vector<std::string> input_gradients,
         std::string output,
         std::vector<int> ouptut_shape,
+        tensorflow::DataType output_type,
         std::vector<std::string> output_gradient);
     int matrix(Eigen::VectorXi vector);
     int matrix(Eigen::VectorXf vector);

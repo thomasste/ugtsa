@@ -1,5 +1,4 @@
 #include "tensorflow/core/public/session.h"
-#include "tensorflow/core/platform/env.h"
 
 #include "ugtsa/games/omringa/game_state.h"
 #include "ugtsa/algorithms/ucb_mcts/algorithm.h"
@@ -67,8 +66,8 @@ int main(int argc, char* argv[]) {
 
     auto game_state = games::omringa::GameState();
 
-    auto board1 = game_state.as_matrix();
-    auto board2 = game_state.as_matrix();
+    auto board1 = game_state.matrix();
+    auto board2 = game_state.matrix();
     auto payoff1 = game_state.random_playout_payoff();
     auto payoff2 = game_state.random_playout_payoff();
 
