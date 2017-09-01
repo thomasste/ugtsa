@@ -3,8 +3,11 @@
 namespace computation_graphs {
 namespace basic_computation_graph {
 
-ComputationGraph::ComputationGraph(bool training, tensorflow::Session* session)
-        : computation_graphs::computation_graph::ComputationGraph(training), session(session) {
+ComputationGraph::ComputationGraph(tensorflow::Session* session, std::string training_name, bool training)
+        : computation_graphs::computation_graph::ComputationGraph(), session(session), training_name(training_name) {
+    training_tensor = tensorflow::Tensor(tensorflow::DataType::DT_BOOL, tensorflow::TensorShape({}));
+    training_tensor.scalar<bool>()(0) = training;
+
     batches.push_back({
         0,
         {}
@@ -12,7 +15,6 @@ ComputationGraph::ComputationGraph(bool training, tensorflow::Session* session)
 }
 
 int ComputationGraph::transformation(
-        std::string training,
         std::string seed,
         int seed_size,
         std::vector<std::string> inputs,
@@ -33,7 +35,6 @@ int ComputationGraph::transformation(
     for (int output_dim : output_shape) output_size *= output_dim;
 
     transformations.push_back({
-        training,
         seed,
         seed_size,
         inputs,
@@ -147,8 +148,7 @@ void ComputationGraph::run_batch() {
     // std::cout << "transformations" << std::endl;
     // for (int i = 0; i < transformations.size(); i++) {
     //     auto &transformation = transformations[i];
-    //     std::cout << "training " << transformation.training << std::endl
-    //               << " seed " << transformation.seed << std::endl
+    //     std::cout << " seed " << transformation.seed << std::endl
     //               << " seed_size " << transformation.seed_size << std::endl
     //               << " inputs size " << transformation.inputs.size() << std::endl
     //               << " input_shapes size " << transformation.input_shapes.size() << std::endl
@@ -269,11 +269,7 @@ void ComputationGraph::run_batch() {
         feed_dict.push_back(std::make_pair(input_name, tensor));
     }
 
-    {
-        tensorflow::Tensor tensor(tensorflow::DataType::DT_BOOL, tensorflow::TensorShape({}));
-        tensor.scalar<bool>()(0) = training;
-        feed_dict.push_back(std::make_pair("training", tensor));
-    }
+    feed_dict.push_back(std::make_pair(training_name, training_tensor));
 
     // std::cout << "feed dict" << std::endl;
     // for (auto &pair : feed_dict) {
@@ -296,7 +292,7 @@ void ComputationGraph::run_batch() {
 
     // run
     std::vector<tensorflow::Tensor> outputs;
-    session->Run(feed_dict, fetch_outputs, {}, &outputs);
+    TF_CHECK_OK(session->Run(feed_dict, fetch_outputs, {}, &outputs));
 
     // convert outputs to reversed vectors
     std::vector<std::vector<int>> transformations_output_buffer;

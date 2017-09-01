@@ -7,7 +7,6 @@ namespace basic_computation_graph {
 
 class ComputationGraph : public computation_graphs::computation_graph::ComputationGraph {
     struct Transformation {
-        std::string training;
         std::string seed;
         int seed_size;
         std::vector<std::string> inputs;
@@ -34,6 +33,8 @@ class ComputationGraph : public computation_graphs::computation_graph::Computati
     };
 
     tensorflow::Session* session;
+    std::string training_name;
+    tensorflow::Tensor training_tensor;
 
     std::default_random_engine generator;
     std::vector<Transformation> transformations;
@@ -41,10 +42,9 @@ class ComputationGraph : public computation_graphs::computation_graph::Computati
     std::vector<Batch> batches;
 
 public:
-    ComputationGraph(bool training, tensorflow::Session* session);
+    ComputationGraph(tensorflow::Session* session, std::string training_name, bool training);
 
     int transformation(
-        std::string training,
         std::string seed,
         int seed_size,
         std::vector<std::string> inputs,

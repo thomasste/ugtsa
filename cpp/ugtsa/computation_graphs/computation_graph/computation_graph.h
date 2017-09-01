@@ -11,14 +11,8 @@ namespace computation_graphs {
 namespace computation_graph {
 
 class ComputationGraph {
-protected:
-    bool training = false;
-
 public:
-    ComputationGraph(bool training);
-
     virtual int transformation(
-        std::string training,
         std::string seed,
         int seed_size,
         std::vector<std::string> inputs,

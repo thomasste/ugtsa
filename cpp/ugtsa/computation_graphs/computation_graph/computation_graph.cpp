@@ -3,7 +3,5 @@
 namespace computation_graphs {
 namespace computation_graph {
 
-ComputationGraph::ComputationGraph(bool training) : training(training) {}
-
 }
 }

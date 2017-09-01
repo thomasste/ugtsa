@@ -134,9 +134,8 @@ int main(int argc, char* argv[]) {
         std::cout << status.ToString() << std::endl;
     }
 
-    computation_graphs::basic_computation_graph::ComputationGraph computation_graph(true, session);
+    computation_graphs::basic_computation_graph::ComputationGraph computation_graph(session, "training:0", true);
     auto t = computation_graph.transformation(
-        "training:0",
         "empty_statistic/seed:0",
         30,
         {"empty_statistic/game_state_board:0", "empty_statistic/game_state_statistic:0"},
