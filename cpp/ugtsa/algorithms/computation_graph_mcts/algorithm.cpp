@@ -9,6 +9,7 @@ Algorithm::Algorithm(games::game::GameState *game_state, int worker_count, int g
       empty_statistic_(empty_statistic), move_rate_(move_rate), game_state_as_update_(game_state_as_update), updated_update_(updated_update) {}
 
 int Algorithm::empty_statistic(games::game::GameState *game_state) {
+    // std::cout << "empty_statistic()" << std::endl;
     return computation_graph->transformation_run(empty_statistic_, {
         {computation_graph->matrix(game_state->matrix())},
         {computation_graph->matrix(game_state->statistic())}
@@ -16,16 +17,19 @@ int Algorithm::empty_statistic(games::game::GameState *game_state) {
 }
 
 int Algorithm::move_rate(int parent_statistic, int child_statistic) {
+    // std::cout << "move_rate()" << std::endl;
     return computation_graph->transformation_run(move_rate_, {{parent_statistic}, {child_statistic}});
 }
 
 int Algorithm::game_state_as_update(games::game::GameState *game_state) {
+    // std::cout << "game_state_as_update()" << std::endl;
     return computation_graph->transformation_run(game_state_as_update_, {
         {computation_graph->matrix(game_state->update_statistic())}
     });
 }
 
 int Algorithm::updated_statistic(int statistic, std::vector<int> updates) {
+    // std::cout << "updated_statistic()" << std::endl;
     Eigen::VectorXi updates_size(1);
     updates_size << updates.size();
     return computation_graph->transformation_run(updated_statistic_, {
@@ -36,6 +40,7 @@ int Algorithm::updated_statistic(int statistic, std::vector<int> updates) {
 }
 
 int Algorithm::updated_update(int update, int statistic) {
+    // std::cout << "updated_update()" << std::endl;
     return computation_graph->transformation_run(updated_update_, {
         {update},
         {statistic}
@@ -43,10 +48,16 @@ int Algorithm::updated_update(int update, int statistic) {
 }
 
 void Algorithm::run_batch() {
+    // std::cout << "run_batch()" << std::endl;
     computation_graph->run_batch();
 }
 
 Eigen::VectorXf Algorithm::value(int rate) {
+    // std::cout << "value()" << std::endl;
+    // Eigen::VectorXf result(2);
+    // result << 1., 1.;
+    // std::cout << result << std::endl;
+    // return result;
     return computation_graph->value(rate);
 }
 

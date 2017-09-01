@@ -43,6 +43,7 @@ class ComputationGraph : public computation_graphs::computation_graph::Computati
 
 public:
     ComputationGraph(tensorflow::Session* session, std::string training_name, bool training);
+    ~ComputationGraph() { std::cout << "~ComputationGraph" << std::endl; }
 
     int transformation(
         std::string seed,

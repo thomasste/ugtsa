@@ -1,5 +1,5 @@
 cc_library(
-    name = "foo",
+    name = "libugtsa",
     srcs = [
         "algorithms/algorithm/algorithm.cpp",
         "algorithms/computation_graph_mcts/algorithm.cpp",
@@ -30,7 +30,17 @@ cc_binary(
     name = "ugtsa",
     srcs = ["main.cpp"],
     deps = [
-        ":foo",
+        ":libugtsa",
+        "//tensorflow/core:tensorflow",
+        "//third_party/eigen3",
+    ]
+)
+
+cc_binary(
+    name = "solution_001",
+    srcs = ["solution_001.cpp"],
+    deps = [
+        ":libugtsa",
         "//tensorflow/core:tensorflow",
         "//third_party/eigen3",
     ]

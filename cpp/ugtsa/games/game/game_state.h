@@ -26,7 +26,7 @@ public:
 
     virtual Eigen::MatrixXf matrix() const = 0;
     virtual Eigen::VectorXf statistic() const = 0;
-    virtual Eigen::VectorXf update_statistic() const = 0;
+    virtual Eigen::VectorXf update_statistic() = 0;
 
     Eigen::VectorXf random_playout_payoff();
     void move_to_random_state();

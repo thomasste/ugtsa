@@ -50,7 +50,7 @@ public:
 
     Eigen::MatrixXf matrix() const;
     Eigen::VectorXf statistic() const;
-    Eigen::VectorXf update_statistic() const;
+    Eigen::VectorXf update_statistic();
 
     GameState *copy() const;
     void serialize(std::ostream& stream) const;

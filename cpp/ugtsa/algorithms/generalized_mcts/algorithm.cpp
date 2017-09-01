@@ -19,6 +19,8 @@ void Algorithm::improve() {
         run_batch();
     }
 
+    std::cout << "improve() begin" << std::endl;
+
     std::vector<int> empty_statistics;
     std::vector<int> move_rates;
     std::vector<int> game_state_as_updates;
@@ -94,6 +96,8 @@ void Algorithm::improve() {
 
     run_batch();
 
+    std::cout << "__0" << std::endl;
+
     std::reverse(empty_statistics.begin(), empty_statistics.end());
     std::reverse(move_rates.begin(), move_rates.end());
     std::reverse(game_state_as_updates.begin(), game_state_as_updates.end());
@@ -111,7 +115,10 @@ void Algorithm::improve() {
         Node &node = tree[workers[group[0]].node];
         games::game::GameState *game_state = workers[group[0]].game_state.get();
 
+        std::cout << "__1" << std::endl;
+
         if (node.children[0] > 0) {
+            std::cout << "__2" << std::endl;
             for (int i = node.children[0]; i < node.children[1]; i++) {
                 Node &child = tree[i];
                 if (child.move_rate_cache == -1) {
@@ -121,7 +128,9 @@ void Algorithm::improve() {
             }
             down_move_case(group);
         } else {
+            std::cout << "__3" << std::endl;
             if (node.number_of_visits >= grow_factor && !game_state->is_final()) {
+                std::cout << "__4" << std::endl;
                 std::vector<int> result;
                 int move_count = game_state->move_count();
                 for (int i = 0; i < move_count; i++) {
@@ -130,6 +139,7 @@ void Algorithm::improve() {
                 }
                 down_expand_case(group, result);
             } else {
+                std::cout << "__5" << std::endl;
                 std::vector<int> result;
                 for (int i = 0; i < group.size(); i++) {
                     result.push_back(game_state_as_updates.back());
@@ -158,6 +168,8 @@ void Algorithm::improve() {
         }
         up_case(group, result1, result2);
     }
+
+    std::cout << "improve() end" << std::endl;
 }
 
 std::vector<int> Algorithm::move_rates() {

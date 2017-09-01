@@ -131,8 +131,8 @@ Eigen::VectorXf GameState::statistic() const {
     return result;
 }
 
-Eigen::VectorXf GameState::update_statistic() const {
-    return payoff();
+Eigen::VectorXf GameState::update_statistic() {
+    return random_playout_payoff();
 }
 
 GameState *GameState::GameState::copy() const {
