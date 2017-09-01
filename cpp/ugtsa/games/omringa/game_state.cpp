@@ -124,6 +124,17 @@ Eigen::MatrixXf GameState::as_matrix() const {
     return board.cast<float>();
 }
 
+Eigen::VectorXf GameState::as_statistics() const {
+    Eigen::VectorXf result(2);
+    result << (float) bets[0], (float) bets[1];
+
+    return result;
+}
+
+Eigen::VectorXf GameState::as_update_statistics() const {
+    return payoff();
+}
+
 GameState *GameState::GameState::copy() const {
     return new GameState(*this);
 }

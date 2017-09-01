@@ -8,8 +8,8 @@ namespace ucb_mcts {
 Algorithm::Algorithm(games::game::GameState *game_state, int worker_count, int grow_factor, std::vector<int> removed_root_moves, float exploration_factor)
     : algorithms::generalized_mcts::Algorithm(game_state, worker_count, grow_factor, removed_root_moves), exploration_factor(exploration_factor) {}
 
-Eigen::VectorXf *Algorithm::value(int rate) {
-    return &move_rates[rate];
+Eigen::VectorXf Algorithm::value(int rate) {
+    return move_rates[rate];
 }
 
 int Algorithm::empty_statistic(games::game::GameState *game_state) {

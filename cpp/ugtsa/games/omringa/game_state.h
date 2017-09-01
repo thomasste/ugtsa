@@ -48,6 +48,8 @@ public:
     bool is_final() const;
     Eigen::VectorXf payoff() const;
     Eigen::MatrixXf as_matrix() const;
+    Eigen::VectorXf as_statistics() const;
+    Eigen::VectorXf as_update_statistics() const;
 
     GameState *copy() const;
     void serialize(std::ostream& stream) const;

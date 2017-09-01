@@ -40,7 +40,7 @@ public:
 
     void improve();
     std::vector<int> move_rates();
-    virtual Eigen::VectorXf *value(int rate) = 0;
+    virtual Eigen::VectorXf value(int rate) = 0;
 
     virtual void serialize(std::ostream& stream) const;
 

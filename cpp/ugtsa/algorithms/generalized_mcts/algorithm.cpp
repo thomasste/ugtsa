@@ -194,7 +194,7 @@ void Algorithm::down_move_case(std::vector<int> &group) {
     if (game_state->player != -1) {
         for (int i = node.children[0]; i < node.children[1]; i++) {
             Node& child = tree[i];
-            probabilities.push_back((*value(child.move_rate_cache))(game_state->player));
+            probabilities.push_back(value(child.move_rate_cache)(game_state->player));
         }
 
         if (node.parent == -1) {

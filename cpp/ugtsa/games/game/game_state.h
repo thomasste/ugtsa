@@ -24,6 +24,8 @@ public:
     virtual bool is_final() const = 0;
     virtual Eigen::VectorXf payoff() const = 0;
     virtual Eigen::MatrixXf as_matrix() const = 0;
+    virtual Eigen::VectorXf as_statistics() const = 0;
+    virtual Eigen::VectorXf as_update_statistics() const = 0;
 
     Eigen::VectorXf random_playout_payoff();
     void move_to_random_state();

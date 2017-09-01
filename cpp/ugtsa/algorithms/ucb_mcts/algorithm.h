@@ -16,7 +16,7 @@ class Algorithm : public algorithms::generalized_mcts::Algorithm {
 public:
     Algorithm(games::game::GameState *game_state, int worker_count, int grow_factor, std::vector<int> removed_root_moves, float exploration_factor);
 
-    Eigen::VectorXf *value(int rate);
+    Eigen::VectorXf value(int rate);
 
     friend std::ostream& operator<<(std::ostream& stream, const Algorithm& algorithm);
 

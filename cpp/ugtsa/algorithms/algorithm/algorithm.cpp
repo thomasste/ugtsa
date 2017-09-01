@@ -16,8 +16,8 @@ int Algorithm::best_move() {
 
     for (int i = 0; i < move_rates.size(); i++) {
         auto move_rate = value(move_rates[i]);
-        if (best_rate < (*move_rate)(game_state->player)) {
-            best_rate = (*move_rate)(game_state->player);
+        if (best_rate < move_rate(game_state->player)) {
+            best_rate = move_rate(game_state->player);
             best_move = i;
         }
     }
