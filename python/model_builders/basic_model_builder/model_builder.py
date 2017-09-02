@@ -120,38 +120,55 @@ class ModelBuilder(model_builder.ModelBuilder):
 
     def _updated_statistic(self, training, global_step, seed, statistic,
                            update_count, updates):
-        inputs = [
-            updates[:, i*self.update_size: (i+1)*self.update_size]
-            for i in range(self.worker_count)]
 
-        for index, state_size in enumerate(
-                self.updated_statistic_lstm_state_sizes):
-            with tf.variable_scope('lstm_layer_{}'.format(index)):
-                states = [tf.tile(tf.Variable(
-                    name='initial_state',
-                    initial_value=tf.zeros((1, state_size))),
-                    [tf.shape(updates)[0], 1])]
-                outputs = [tf.tile(tf.Variable(
-                    name='initial_output',
-                    initial_value=tf.zeros((1, state_size))),
-                    [tf.shape(updates)[0], 1])]
+        loop_condition = lambda i, states, outputs: tf.less(i, tf.reduce_max(update_count))
+        def loop_body(i, states, outputs):
+            input = updates[:, i*self.update_size: (i+1)*self.update_size]
+            new_states = []
+            new_outputs = []
+            for layer, (state, output) in enumerate(zip(states, outputs)):
+                with tf.variable_scope('lstm_layer_{}'.format(layer), reuse=True):
+                    modified_state, modified_output = lstm(input, state, output)
+                    print(
+                        input.get_shape(),
+                        modified_state.get_shape(),
+                        modified_output.get_shape())
+                    new_states += [tf.where(update_count > i, modified_state, state)]
+                    new_outputs += [tf.where(update_count > i, modified_output, output)]
+                    input = output
+            return i+1, new_states, new_outputs
 
-                for i in range(self.worker_count):
-                    with tf.variable_scope('lstm', reuse=(i > 0)):
-                        modified_state, modified_output = lstm(
-                            inputs[i], states[-1], outputs[-1])
-                        print(
-                            inputs[i].get_shape(),
-                            modified_output.get_shape(),
-                            modified_output.get_shape())
-                        states += [tf.where(
-                            update_count > i, modified_state, states[-1])]
-                        outputs += [tf.where(
-                            update_count > i, modified_output, outputs[-1])]
+        initial_states = [
+            tf.tile(tf.Variable(
+                name='initial_state',
+                initial_value=tf.zeros((1, state_size))),
+                [tf.shape(updates)[0], 1])
+            for state_size in self.updated_statistic_lstm_state_sizes]
+        initial_outputs = [
+            tf.tile(tf.Variable(
+                name='initial_output',
+                initial_value=tf.zeros((1, state_size))),
+                [tf.shape(updates)[0], 1])
+            for state_size in self.updated_statistic_lstm_state_sizes]
 
-                inputs = outputs[1:]
+        input = updates[:, 0: self.update_size]
+        new_states = []
+        new_outputs = []
+        for layer, (state, output) in enumerate(zip(initial_states, initial_outputs)):
+            with tf.variable_scope('lstm_layer_{}'.format(layer), reuse=False):
+                modified_state, modified_output = lstm(input, state, output)
+                print(
+                    input.get_shape(),
+                    modified_state.get_shape(),
+                    modified_output.get_shape())
+                new_states += [tf.where(update_count > 0, modified_state, state)]
+                new_outputs += [tf.where(update_count > 0, modified_output, output)]
+                input = output
 
-        signal = inputs[-1]
+        output_i, output_states, output_outputs = \
+            tf.while_loop(loop_condition, loop_body, (tf.constant(1), new_states, new_outputs))
+
+        signal = output_outputs[-1]
         print(signal.get_shape())
         signal = tf.concat([signal, statistic], axis=1)
         print(signal.get_shape())

@@ -466,14 +466,15 @@ class ModelBuilder(object):
                 'updated_statistic',
                 'updated_update',
                 'cost_function']:
-            trainable_variables = tf.get_collection(
-                tf.GraphKeys.TRAINABLE_VARIABLES,
-                '{}/transformation'.format(name))
+            # trainable_variables = tf.get_collection(
+            #     tf.GraphKeys.TRAINABLE_VARIABLES,
+            #     '{}/transformation'.format(name))
             model_gradient_accumulators = tf.get_default_graph() \
                 .get_collection('{}/model_gradient_accumulators'.format(name))
 
-            print(session.run(trainable_variables[:2]))
-            print(session.run(model_gradient_accumulators[:2]))
+            # print(session.run(trainable_variables[:2]))
+            print(tf.get_default_graph().get_collection('{}/model_gradient_accumulators'.format(name))[:])
+            print(session.run(model_gradient_accumulators[:]))
 
     @classmethod
     def apply_gradients(cls) -> None:
