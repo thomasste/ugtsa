@@ -120,14 +120,19 @@ class ModelBuilder(model_builder.ModelBuilder):
 
     def _updated_statistic(self, training, global_step, seed, statistic,
                            update_count, updates):
+        loop_condition = lambda i, updates, states, outputs, renamed_model: tf.less(i, tf.reduce_max(update_count))
+        def loop_body(i, updates, states, outputs, renamed_model):
+            def custom_getter(getter, name, *args, **kwargs):
+                # print(model)
+                # print(renamed_model)
+                print(name)
+                return next(y for x, y in zip(model, renamed_model) if x.name == name + ":0")
 
-        loop_condition = lambda i, updates, states, outputs: tf.less(i, tf.reduce_max(update_count))
-        def loop_body(i, updates, states, outputs):
             input = updates[:, i*self.update_size: (i+1)*self.update_size]
             new_states = []
             new_outputs = []
             for layer, (state, output) in enumerate(zip(states, outputs)):
-                with tf.variable_scope('lstm_layer_{}'.format(layer), reuse=True):
+                with tf.variable_scope('lstm_layer_{}'.format(layer), custom_getter=custom_getter):
                     modified_state, modified_output = lstm(input, state, output)
                     print(
                         input.get_shape(),
@@ -136,7 +141,7 @@ class ModelBuilder(model_builder.ModelBuilder):
                     new_states += [tf.where(update_count > i, modified_state, state)]
                     new_outputs += [tf.where(update_count > i, modified_output, output)]
                     input = output
-            return i+1, updates, new_states, new_outputs
+            return i+1, updates, new_states, new_outputs, renamed_model
 
         initial_states = [
             tf.tile(tf.Variable(
@@ -155,7 +160,7 @@ class ModelBuilder(model_builder.ModelBuilder):
         new_states = []
         new_outputs = []
         for layer, (state, output) in enumerate(zip(initial_states, initial_outputs)):
-            with tf.variable_scope('lstm_layer_{}'.format(layer), reuse=False):
+            with tf.variable_scope('lstm_layer_{}'.format(layer)):
                 modified_state, modified_output = lstm(input, state, output)
                 print(
                     input.get_shape(),
@@ -165,8 +170,12 @@ class ModelBuilder(model_builder.ModelBuilder):
                 new_outputs += [tf.where(update_count > 0, modified_output, output)]
                 input = output
 
-        output_i, output_updates, output_states, output_outputs = \
-            tf.while_loop(loop_condition, loop_body, (tf.constant(1), updates, new_states, new_outputs))
+        model = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, tf.get_variable_scope().name)
+
+        print(model)
+
+        output_i, output_updates, output_states, output_outputs, _ = \
+            tf.while_loop(loop_condition, loop_body, (tf.constant(1), updates, new_states, new_outputs, model))
 
         signal = output_outputs[-1]
         print(signal.get_shape())
