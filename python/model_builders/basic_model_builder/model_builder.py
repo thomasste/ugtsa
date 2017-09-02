@@ -121,8 +121,8 @@ class ModelBuilder(model_builder.ModelBuilder):
     def _updated_statistic(self, training, global_step, seed, statistic,
                            update_count, updates):
 
-        loop_condition = lambda i, states, outputs: tf.less(i, tf.reduce_max(update_count))
-        def loop_body(i, states, outputs):
+        loop_condition = lambda i, updates, states, outputs: tf.less(i, tf.reduce_max(update_count))
+        def loop_body(i, updates, states, outputs):
             input = updates[:, i*self.update_size: (i+1)*self.update_size]
             new_states = []
             new_outputs = []
@@ -136,7 +136,7 @@ class ModelBuilder(model_builder.ModelBuilder):
                     new_states += [tf.where(update_count > i, modified_state, state)]
                     new_outputs += [tf.where(update_count > i, modified_output, output)]
                     input = output
-            return i+1, new_states, new_outputs
+            return i+1, updates, new_states, new_outputs
 
         initial_states = [
             tf.tile(tf.Variable(
@@ -165,8 +165,8 @@ class ModelBuilder(model_builder.ModelBuilder):
                 new_outputs += [tf.where(update_count > 0, modified_output, output)]
                 input = output
 
-        output_i, output_states, output_outputs = \
-            tf.while_loop(loop_condition, loop_body, (tf.constant(1), new_states, new_outputs))
+        output_i, output_updates, output_states, output_outputs = \
+            tf.while_loop(loop_condition, loop_body, (tf.constant(1), updates, new_states, new_outputs))
 
         signal = output_outputs[-1]
         print(signal.get_shape())
