@@ -53,7 +53,6 @@ int ComputationGraph::transformation(
 }
 
 int ComputationGraph::matrix(Eigen::VectorXi vector) {
-    //std::cout << "vxi" << std::endl;
     std::vector<int> output;
     for (int i = 0; i < vector.size(); i++) {
         output.push_back(vector(i));
@@ -69,7 +68,6 @@ int ComputationGraph::matrix(Eigen::VectorXi vector) {
 }
 
 int ComputationGraph::matrix(Eigen::VectorXf vector) {
-    //std::cout << "vxf" << std::endl << vector << std::endl;
     std::vector<int> output;
     for (int i = 0; i < vector.size(); i++) {
         output.push_back(*((int *)&vector(i)));
@@ -85,7 +83,6 @@ int ComputationGraph::matrix(Eigen::VectorXf vector) {
 }
 
 int ComputationGraph::matrix(Eigen::MatrixXi matrix) {
-    //std::cout << "mxi" << std::endl;
     std::vector<int> output;
     for (int i = 0; i < matrix.rows(); i++) {
         for (int j = 0; j < matrix.cols(); j++) {
@@ -103,7 +100,6 @@ int ComputationGraph::matrix(Eigen::MatrixXi matrix) {
 }
 
 int ComputationGraph::matrix(Eigen::MatrixXf matrix) {
-    //std::cout << "mxf" << std::endl;
     std::vector<int> output;
     for (int i = 0; i < matrix.rows(); i++) {
         for (int j = 0; j < matrix.cols(); j++) {
@@ -121,7 +117,6 @@ int ComputationGraph::matrix(Eigen::MatrixXf matrix) {
 }
 
 int ComputationGraph::transformation_run(int transformation, std::vector<std::vector<int>> inputs) {
-    // std::cout << "transformation_run() begin" << std::endl;
     nodes.push_back({
         transformation,
         inputs,
@@ -132,8 +127,6 @@ int ComputationGraph::transformation_run(int transformation, std::vector<std::ve
 }
 
 void ComputationGraph::run_batch() {
-    std::cout << "AAA" << std::endl;
-
     // create seeds
     std::uniform_int_distribution<long long> distribution;
     std::vector<std::vector<long long>> seeds;
@@ -150,42 +143,6 @@ void ComputationGraph::run_batch() {
         (int) nodes.size(),
         seeds
     });
-
-    // debug
-    // std::cout << "transformations" << std::endl;
-    // for (int i = 0; i < transformations.size(); i++) {
-    //     auto &transformation = transformations[i];
-    //     std::cout << " seed " << transformation.seed << std::endl
-    //               << " seed_size " << transformation.seed_size << std::endl
-    //               << " inputs size " << transformation.inputs.size() << std::endl
-    //               << " input_shapes size " << transformation.input_shapes.size() << std::endl
-    //               << " input_sizes size " << transformation.input_sizes.size() << std::endl
-    //               << " input_types size " << transformation.input_types.size() << std::endl
-    //               << " input_gradients size " << transformation.input_gradients.size() << std::endl
-    //               << " output " << transformation.output << std::endl
-    //               << " output_shape size " << transformation.output_shape.size() << std::endl
-    //               << " output_size " << transformation.output_size << std::endl
-    //               << " output_type " << transformation.output_type << std::endl
-    //               << " output_gradient " << transformation.output_gradient << std::endl;
-    // }
-
-    // std::cout << "nodes" << std::endl;
-    // for (int i = 0; i < nodes.size(); i++) {
-    //     auto &node = nodes[i];
-    //     std::cout << "transformation " << node.transformation << " inputs [";
-    //     for (auto &node_input : node.inputs) {
-    //         std::cout << "{";
-    //         for (int node_partial_input : node_input) {
-    //             std::cout << node_partial_input << ",";
-    //         }
-    //         std::cout << "},";
-    //     }
-    //     std::cout << "] output [";
-    //     for (int j : node.output) {
-    //         std::cout << j << " ";
-    //     }
-    //     std::cout << "]" << std::endl;
-    // }
 
     // collect inputs
     std::vector<int> transformations_input_count;
@@ -231,24 +188,21 @@ void ComputationGraph::run_batch() {
     std::vector<std::pair<std::string, tensorflow::Tensor>> feed_dict;
 
     for (int transformation_index = 0; transformation_index < transformations.size(); transformation_index++) {
-        auto transformation_input_count = transformations_input_count[transformation_index];
+        auto &transformation = transformations[transformation_index];
+        int transformation_input_count = transformations_input_count[transformation_index];
+        auto &transformation_input_buffers = transformations_input_buffers[transformation_index];
         if (transformation_input_count > 0) {
-            auto &transformation = transformations[transformation_index];
-            auto &transformation_input_buffers = transformations_input_buffers[transformation_index];
             for (int input_index = 0; input_index < transformation.inputs.size(); input_index++) {
                 auto &transformation_input_buffer = transformation_input_buffers[input_index];
                 auto &input_name = transformation.inputs[input_index];
-                auto &input_type = transformation.input_types[input_index];
                 auto &input_shape = transformation.input_shapes[input_index];
-
+                auto &input_type = transformation.input_types[input_index];
                 tensorflow::TensorShape tensor_shape;
                 tensor_shape.AddDim(transformation_input_count);
                 for (int input_dim : input_shape) {
                     tensor_shape.AddDim(input_dim);
                 }
-
                 tensorflow::Tensor tensor(input_type, tensor_shape);
-                // wtf
                 if (input_type == tensorflow::DataType::DT_FLOAT) {
                     for (int i = 0; i < transformation_input_buffer.size(); i++) {
                         tensor.flat<float>()(i) = *((float *)&transformation_input_buffer[i]);
@@ -257,8 +211,10 @@ void ComputationGraph::run_batch() {
                     for (int i = 0; i < transformation_input_buffer.size(); i++) {
                         tensor.flat<int>()(i) = transformation_input_buffer[i];
                     }
+                } else {
+                    std::cout << "unsupported type: " << input_type << std::endl;
+                    exit(1);
                 }
-
                 feed_dict.push_back(std::make_pair(input_name, tensor));
             }
         }
@@ -278,101 +234,38 @@ void ComputationGraph::run_batch() {
 
     feed_dict.push_back(std::make_pair(training_name, training_tensor));
 
-    std::cout << "feed dict" << std::endl;
-    for (auto &pair : feed_dict) {
-        std::cout << pair.first << " type " << pair.second.dtype() << " shape ["; // << std::endl;
-        for (int i = 0; i < pair.second.dims(); i++) {
-            std::cout << pair.second.dim_size(i) << " ";
-        }
-        std::cout << "]" << std::endl;
-    }
-
     // create fetch outputs
     std::vector<std::string> fetch_outputs;
     std::vector<int> transformation_index_to_output;
     {
-        int i = 0;
+        int shift = 0;
         for (int transformation_index = 0; transformation_index < transformations.size(); transformation_index++) {
-            transformation_index_to_output.push_back(i);
+            transformation_index_to_output.push_back(shift);
             if (transformations_input_count[transformation_index] > 0) {
                 fetch_outputs.push_back(transformations[transformation_index].output);
-                i++;
+                shift++;
             }
         }
     }
-
-    std::cout << "CCC" << std::endl;
 
     // run
     std::vector<tensorflow::Tensor> outputs;
     TF_CHECK_OK(session->Run(feed_dict, fetch_outputs, {}, &outputs));
 
-    std::cout << "DDD" << std::endl;
-
-    // convert outputs to reversed vectors
-    std::vector<std::vector<int>> transformations_output_buffer;
-    for (int transformation_index = 0; transformation_index < transformations.size(); transformation_index++) {
-        transformations_output_buffer.push_back({});
-
-        auto transformation_input_count = transformations_input_count[transformation_index];
-        if (transformation_input_count > 0) {
-            auto &transformation = transformations[transformation_index];
-            auto &output = outputs[transformation_index_to_output[transformation_index]];
-            for (int i = transformation_input_count * transformation.output_size - 1; i >= 0; i--) {
-                transformations_output_buffer.back().push_back(*((int *)&output.flat<float>()(i)));
-            }
-        }
-    }
-
-    for (int transformation_index = 0; transformation_index < transformations.size(); transformation_index++) {
-        auto &transformation_output_buffer = transformations_output_buffer[transformation_index];
-        std::cout << "transformation_index " << transformation_index << " " << transformation_output_buffer.size() << " [";
-        for (int value : transformation_output_buffer) {
-            std::cout << *((float*)&value) << " ";
-        }
-        std::cout << "]" << std::endl;
-    }
-
     // set outputs
-    for(int node_index = batches[batches.size() - 2].nodes_end; node_index < batches[batches.size() - 1].nodes_end; node_index++) {
+    for(int node_index = batches[batches.size() - 1].nodes_end - 1; node_index >= batches[batches.size() - 2].nodes_end; node_index--) {
         auto &node = nodes[node_index];
+
         if (node.transformation != -1) {
             auto &transformation = transformations[node.transformation];
-            auto &transformation_output_buffer = transformations_output_buffer[node.transformation];
+            auto &output = outputs[transformation_index_to_output[node.transformation]];
             for (int i = 0; i < transformation.output_size; i++) {
-                node.output.push_back(transformation_output_buffer.back());
-                transformation_output_buffer.pop_back();
+                float f = output.matrix<float>()(transformations_input_count[node.transformation] - 1, i);
+                node.output.push_back(*((int*)&f));
             }
+            transformations_input_count[node.transformation]--;
         }
     }
-
-    // for (int transformation_index = 0; transformation_index < transformations.size(); transformation_index++) {
-    //     auto &transformation_output_buffer = transformations_output_buffer[transformation_index];
-    //     std::cout << "transformation_index " << transformation_index << " " << transformation_output_buffer.size() << " [";
-    //     for (int value : transformation_output_buffer) {
-    //         std::cout << *((float*)&value) << " ";
-    //     }
-    //     std::cout << "]" << std::endl;
-    // }
-
-    // std::cout << "nodes" << std::endl;
-    // for (int i = 0; i < nodes.size(); i++) {
-    //     auto &node = nodes[i];
-    //     std::cout << "transformation " << node.transformation << " inputs [";
-    //     for (auto &node_input : node.inputs) {
-    //         std::cout << "{";
-    //         for (int node_partial_input : node_input) {
-    //             std::cout << node_partial_input << ",";
-    //         }
-    //         std::cout << "},";
-    //     }
-    //     std::cout << "] output [";
-    //     for (int j : node.output) {
-    //         std::cout << j << " ";
-    //     }
-    //     std::cout << "]" << std::endl;
-    // }
-    std::cout << "BBB" << std::endl;
 }
 
 Eigen::VectorXf ComputationGraph::value(int index) {

@@ -27,12 +27,6 @@ int Algorithm::move_rate(int parent_statistic, int child_statistic) {
     move_rates.push_back(
         cw / ((float) cn + 0.1) + exploration_factor * std::sqrt(std::log((float) pn + 0.1) / ((float) cn + 0.1)) * Eigen::VectorXf::Ones(cw.size()));
 
-//    std::cout << "MOVE_RATES_BACK " << std::endl
-//              << pn << std::endl
-//              << cn << std::endl
-//              << cw << std::endl
-//              << move_rates.back() << std::endl;
-
     return move_rates.size() - 1;
 }
 

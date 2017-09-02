@@ -111,7 +111,5 @@ int main(int argc, char **argv) {
     // close session
     TF_CHECK_OK(session->Close());
 
-    std::cout << "DUPA" << std::endl;
-
     return 0;
 }
