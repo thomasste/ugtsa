@@ -59,26 +59,5 @@ def dropout_layer(seed, signal, keep_prob=0.5, training=False):
     mask = tf.to_float(rand < keep_prob)
     return seed, tf.cond(
         training,
-        lambda: (signal * mask) / tf.sqrt(keep_prob),
+        lambda: (signal * mask) / keep_prob,
         lambda: signal)
-
-
-def lstm(signal, old_state, old_output):
-    state_size = old_state.get_shape()[1].value
-
-    merged_inputs = tf.concat([signal, old_output], axis=1)
-
-    with tf.variable_scope('f'):
-        f = tf.sigmoid(
-            bias_layer(
-                dense_layer(merged_inputs, state_size), constant=1.))
-    with tf.variable_scope('i'):
-        i = tf.sigmoid(bias_layer(dense_layer(merged_inputs, state_size)))
-    with tf.variable_scope('o'):
-        o = tf.sigmoid(bias_layer(dense_layer(merged_inputs, state_size)))
-    with tf.variable_scope('state'):
-        state = f * old_state + i * tf.tanh(
-            bias_layer(dense_layer(merged_inputs, state_size)))
-    output = o * tf.tanh(state)
-
-    return state, output
