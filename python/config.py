@@ -92,7 +92,7 @@ config = {
                                 game_state_as_update_hidden_output_sizes=[
                                     500, 500, 500, 500, 500],
                                 updated_statistic_lstm_state_sizes=[
-                                    500, 500, 500, 500, 500],
+                                    300, 300, 300],
                                 updated_statistic_hidden_output_sizes=[
                                     500, 500, 500, 500, 500],
                                 updated_update_hidden_output_sizes=[
@@ -121,7 +121,7 @@ config = {
                                     game_state_as_update_hidden_output_sizes=[
                                         500, 500, 500, 500, 500],
                                     updated_statistic_lstm_state_sizes=[
-                                        500, 500, 500, 500, 500],
+                                        300, 300, 300],
                                     updated_statistic_hidden_output_sizes=[
                                         500, 500, 500, 500, 500],
                                     updated_update_hidden_output_sizes=None,

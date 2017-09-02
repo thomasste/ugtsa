@@ -73,24 +73,24 @@ class ModelBuilder(model_builder.ModelBuilder):
             training, global_step, seed, statistic, update_count, updates)
 
     def _updated_update(self, training, global_step, seed, update, statistic):
-        split = tf.split(
-            update, self.updated_update_lstm_state_sizes * 2, 1)
+        split = tf.split(update, self.updated_update_lstm_state_sizes * 2, 1)
 
-        old_states = split[:len(self.updated_update_lstm_state_sizes)]
-        old_outputs = split[len(self.updated_update_lstm_state_sizes):]
+        old_states = split[:len(self.updated_update_lstm_state_sizes)]  # c
+        old_outputs = split[len(self.updated_update_lstm_state_sizes):]  # h
 
-        new_states, new_outputs = [], []
+        states = split[:len(self.updated_update_lstm_state_sizes)]
 
         input = statistic
-        for index, (old_state, old_output) in enumerate(
-                zip(old_states, old_outputs)):
-            with tf.variable_scope('lstm_layer_{}'.format(index)):
-                print(old_state.get_shape(), old_output.get_shape())
-                state, output = lstm(input, old_state, old_output)
-                new_states += [state]
-                new_outputs += [output]
+        new_states = []
+        new_outputs = []
 
-                input = output
+        for i, (state_size, state, output) in enumerate(zip(self.updated_update_lstm_state_sizes, old_states, old_outputs)):
+            with tf.variable_scope('lstm_layer_{}'.format(i)):
+                cell = tf.contrib.rnn.LSTMCell(state_size)
+                input, output = cell(input, [state, output])
+                print(input.get_shape(), output)
+                new_states += [output.c]
+                new_outputs += [output.h]
 
         return tf.concat(new_states + new_outputs, axis=1)
 
