@@ -53,11 +53,11 @@ with tf.Session(config=config, graph=graph) as session:
             graph.get_tensor_by_name('global_step:0'))))
 
         if args.use_initial_state:
+            gs = deepcopy(game_state)
+        else:
             gs = GameState.random_game_state(game_state)
             if gs.is_final:
                 gs.undo_move()
-        else:
-            gs = deepcopy(game_state)
 
         computation_graph = ComputationGraph(True)
         transformations = ModelBuilder.create_transformations(
