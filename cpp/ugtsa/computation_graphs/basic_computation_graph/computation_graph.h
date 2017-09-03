@@ -19,6 +19,7 @@ class ComputationGraph : public computation_graphs::computation_graph::Computati
         int output_size;
         tensorflow::DataType output_type;
         std::string output_gradient;
+        std::string update_model_gradient_accumulators;
     };
 
     struct Node {
@@ -54,12 +55,14 @@ public:
         std::string output,
         std::vector<int> output_shape,
         tensorflow::DataType output_type,
-        std::string output_gradient);
+        std::string output_gradient,
+        std::string update_model_gradient_accumulators);
     int matrix(Eigen::VectorXi vector);
     int matrix(Eigen::VectorXf vector);
     int matrix(Eigen::MatrixXi matrix);
     int matrix(Eigen::MatrixXf matrix);
     int transformation_run(int transformation, std::vector<std::vector<int>> inputs);
+    void accumulate_model_gradients(int first_node, std::vector<std::pair<int, Eigen::VectorXf>, Eigen::aligned_allocator<std::pair<int, Eigen::VectorXf>>> y_grads);
     void run_batch();
     Eigen::VectorXf value(int index);
 };

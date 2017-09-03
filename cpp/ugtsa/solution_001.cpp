@@ -61,8 +61,8 @@ int main(int argc, char **argv) {
         "empty_statistic/output:0",
         {statistic_size},
         tensorflow::DataType::DT_FLOAT,
-        "empty_statistic/output_gradient:0");
-
+        "empty_statistic/output_gradient:0",
+        "empty_statistic/update_model_gradient_accumulators");
     auto move_rate = computation_graph.transformation(
         "move_rate/seed:0",
         seed_size,
@@ -73,7 +73,8 @@ int main(int argc, char **argv) {
         "move_rate/output:0",
         {player_count},
         tensorflow::DataType::DT_FLOAT,
-        "move_rate/output_gradient:0");
+        "move_rate/output_gradient:0",
+        "move_rate/update_model_gradient_accumulators");
     auto game_state_as_update = computation_graph.transformation(
         "game_state_as_update/seed:0",
         seed_size,
@@ -84,7 +85,8 @@ int main(int argc, char **argv) {
         "game_state_as_update/output:0",
         {update_size},
         tensorflow::DataType::DT_FLOAT,
-        "game_state_as_update/output_gradient:0");
+        "game_state_as_update/output_gradient:0",
+        "game_state_as_update/update_model_gradient_accumulators");
     auto updated_statistic = computation_graph.transformation(
         "updated_statistic/seed:0",
         seed_size,
@@ -95,7 +97,8 @@ int main(int argc, char **argv) {
         "updated_statistic/output:0",
         {statistic_size},
         tensorflow::DataType::DT_FLOAT,
-        "updated_statistic/output_gradient:0");
+        "updated_statistic/output_gradient:0",
+        "updated_statistic/update_model_gradient_accumulators");
     auto updated_update = computation_graph.transformation(
         "updated_update/seed:0",
         seed_size,
@@ -106,7 +109,8 @@ int main(int argc, char **argv) {
         "updated_update/output:0",
         {update_size},
         tensorflow::DataType::DT_FLOAT,
-        "updated_update/output_gradient:0");
+        "updated_update/output_gradient:0",
+        "updated_update/update_model_gradient_accumulators");
 
     auto ugtsa_algorithm = algorithms::computation_graph_mcts::Algorithm(
         &ugtsa_game_state, 10, 5, {}, &computation_graph, empty_statistic, move_rate,
@@ -115,6 +119,8 @@ int main(int argc, char **argv) {
     for (int i = 0; i < 10000; i++) {
         ugtsa_algorithm.improve();
     }
+
+    computation_graph.accumulate_model_gradients(0, {});
 
     std::cout << ugtsa_algorithm << std::endl;
 

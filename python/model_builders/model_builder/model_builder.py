@@ -95,6 +95,11 @@ class ModelBuilder(object):
                     variable_scope.name),
                 tf.assign_add(gradient_accumulator, gradient).op)
 
+        with tf.control_dependencies(tf.get_collection(
+                "{}/update_model_gradient_accumulators".format(variable_scope.name))):
+            # there is no noop
+            tf.add(1, 1, "update_model_gradient_accumulators")
+
         tf.variables_initializer(
             tf.get_collection(
                 '{}/model_gradient_accumulators'.format(variable_scope.name)),
