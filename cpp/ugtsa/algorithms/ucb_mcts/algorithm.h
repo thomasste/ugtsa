@@ -8,7 +8,7 @@ namespace ucb_mcts {
 class Algorithm : public algorithms::generalized_mcts::Algorithm {
     std::vector<int> ns;
     std::vector<Eigen::VectorXf, Eigen::aligned_allocator<Eigen::VectorXf>> ws;
-    std::vector<Eigen::VectorXf, Eigen::aligned_allocator<Eigen::VectorXf>> move_rates;
+    std::vector<Eigen::VectorXf, Eigen::aligned_allocator<Eigen::VectorXf>> move_rates_;
     std::vector<Eigen::VectorXf, Eigen::aligned_allocator<Eigen::VectorXf>> updates;
 
     float exploration_factor;

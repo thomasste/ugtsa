@@ -1,5 +1,6 @@
 #include "tensorflow/core/public/session.h"
 
+#include "ugtsa/common.h"
 #include "ugtsa/algorithms/ucb_mcts/algorithm.h"
 #include "ugtsa/algorithms/computation_graph_mcts/algorithm.h"
 #include "ugtsa/computation_graphs/basic_computation_graph/computation_graph.h"
@@ -18,111 +19,73 @@ int main(int argc, char **argv) {
     int update_statistic_size = std::atoi(argv[9]);
     int seed_size = std::atoi(argv[10]);
 
-    std::cout << "player_count " << player_count
-              << " worker_count " << worker_count
-              << " statistic_size " << statistic_size
-              << " update_size " << update_size
-              << " game_state_board_shape " << game_state_board_shape[0] << " " << game_state_board_shape[1]
-              << " game_state_statistic_size " << game_state_statistic_size
-              << " update_statistic_size " << update_statistic_size
-              << " seed_size " << seed_size << std::endl;
-
     // create session
     tensorflow::Session* session;
     tensorflow::SessionOptions session_options = tensorflow::SessionOptions();
     TF_CHECK_OK(tensorflow::NewSession(session_options, &session));
 
     // load graph
-    auto graph_def = tensorflow::GraphDef();
-    TF_CHECK_OK(tensorflow::ReadBinaryProto(tensorflow::Env::Default(), "graphs/" + graph_name + ".pb", &graph_def));
-    TF_CHECK_OK(session->Create(graph_def));
+    common::load_model(session, graph_name);
 
-    // load model
-    auto model_path = tensorflow::Tensor(tensorflow::DT_STRING, tensorflow::TensorShape({1, 1}));
-    model_path.matrix<std::string>()(0, 0) = "models/" + graph_name;
-    TF_CHECK_OK(session->Run({{"save/Const:0", model_path}}, {}, {"save/restore_all"}, nullptr));
+    for (int i = 0; i < 1; i++) {
+        // game state
+        auto game_state = games::omringa::GameState();
+        // game_state.move_to_random_state();
+        // if (game_state.is_final()) {
+        //     game_state.undo_move();
+        // }
 
-    // game state
-    auto game_state = games::omringa::GameState();
-    auto ucb_game_state = games::omringa::GameState(); // = std::unique_ptr<games::game::GameState>(game_state.copy());
-    auto ugtsa_game_state = games::omringa::GameState(); // = std::unique_ptr<games::game::GameState>(game_state.copy());
+        auto ucb_game_state = std::unique_ptr<games::game::GameState>(game_state.copy());
+        auto ugtsa_game_state = std::unique_ptr<games::game::GameState>(game_state.copy());
 
-    // games::game::GameState *game_state, int worker_count, int grow_factor, std::vector<int> removed_root_moves, float exploration_factor
-    auto ucb_algorithm = algorithms::ucb_mcts::Algorithm(&ucb_game_state, 10, 5, {}, std::sqrt(2.));
+        // create ucb algorithm
+        auto ucb_algorithm = algorithms::ucb_mcts::Algorithm(ucb_game_state.get(), 10, 5, {}, std::sqrt(2.));
 
-    auto computation_graph = computation_graphs::basic_computation_graph::ComputationGraph(session, "training:0", true);
-    auto empty_statistic = computation_graph.transformation(
-        "empty_statistic/seed:0",
-        seed_size,
-        {"empty_statistic/game_state_board:0", "empty_statistic/game_state_statistic:0"},
-        {{game_state_board_shape}, {game_state_statistic_size}},
-        {tensorflow::DataType::DT_FLOAT, tensorflow::DataType::DT_FLOAT},
-        {"", ""},
-        "empty_statistic/output:0",
-        {statistic_size},
-        tensorflow::DataType::DT_FLOAT,
-        "empty_statistic/output_gradient:0",
-        "empty_statistic/update_model_gradient_accumulators");
-    auto move_rate = computation_graph.transformation(
-        "move_rate/seed:0",
-        seed_size,
-        {"move_rate/parent_statistic:0", "move_rate/child_statistic:0"},
-        {{statistic_size}, {statistic_size}},
-        {tensorflow::DataType::DT_FLOAT, tensorflow::DataType::DT_FLOAT},
-        {"move_rate/parent_statistic_gradient:0", "move_rate/child_statistic_gradient:0"},
-        "move_rate/output:0",
-        {player_count},
-        tensorflow::DataType::DT_FLOAT,
-        "move_rate/output_gradient:0",
-        "move_rate/update_model_gradient_accumulators");
-    auto game_state_as_update = computation_graph.transformation(
-        "game_state_as_update/seed:0",
-        seed_size,
-        {"game_state_as_update/update_statistic:0"},
-        {{update_statistic_size}},
-        {tensorflow::DataType::DT_FLOAT},
-        {""},
-        "game_state_as_update/output:0",
-        {update_size},
-        tensorflow::DataType::DT_FLOAT,
-        "game_state_as_update/output_gradient:0",
-        "game_state_as_update/update_model_gradient_accumulators");
-    auto updated_statistic = computation_graph.transformation(
-        "updated_statistic/seed:0",
-        seed_size,
-        {"updated_statistic/statistic:0", "updated_statistic/update_count:0", "updated_statistic/updates:0"},
-        {{statistic_size}, {}, {worker_count * update_size}},
-        {tensorflow::DataType::DT_FLOAT, tensorflow::DataType::DT_INT32, tensorflow::DataType::DT_FLOAT},
-        {"updated_statistic/statistic_gradient:0", "", "updated_statistic/updates_gradient:0"},
-        "updated_statistic/output:0",
-        {statistic_size},
-        tensorflow::DataType::DT_FLOAT,
-        "updated_statistic/output_gradient:0",
-        "updated_statistic/update_model_gradient_accumulators");
-    auto updated_update = computation_graph.transformation(
-        "updated_update/seed:0",
-        seed_size,
-        {"updated_update/update:0", "updated_update/statistic:0"},
-        {{update_size}, {statistic_size}},
-        {tensorflow::DataType::DT_FLOAT, tensorflow::DataType::DT_FLOAT},
-        {"updated_update/update_gradient:0", "updated_update/statistic_gradient:0"},
-        "updated_update/output:0",
-        {update_size},
-        tensorflow::DataType::DT_FLOAT,
-        "updated_update/output_gradient:0",
-        "updated_update/update_model_gradient_accumulators");
+        // create ugtsa algorithm
+        auto computation_graph = computation_graphs::basic_computation_graph::ComputationGraph(session, "training:0", true);
+        auto transformations = common::create_transformations(
+            &computation_graph, player_count, worker_count, statistic_size, update_size, game_state_board_shape,
+            game_state_statistic_size, update_statistic_size, seed_size);
+        auto ugtsa_algorithm = algorithms::computation_graph_mcts::Algorithm(
+            ugtsa_game_state.get(), worker_count, 5, {}, &computation_graph, transformations[0], transformations[1],
+            transformations[2], transformations[3], transformations[4]);
 
-    auto ugtsa_algorithm = algorithms::computation_graph_mcts::Algorithm(
-        &ugtsa_game_state, 10, 5, {}, &computation_graph, empty_statistic, move_rate,
-        game_state_as_update, updated_statistic, updated_update);
+        for (int i = 0; i < 500; i++) {
+            ucb_algorithm.improve();
+        }
 
-    for (int i = 0; i < 10000; i++) {
-        ugtsa_algorithm.improve();
+        for (int i = 0; i < 500; i++) {
+            ugtsa_algorithm.improve();
+        }
+
+        auto ucb_move_rates = ucb_algorithm.move_rates();
+        auto ugtsa_move_rates = ugtsa_algorithm.move_rates();
+        std::vector<Eigen::VectorXf, Eigen::aligned_allocator<Eigen::VectorXf>> ucb_move_rate_values;
+        std::vector<Eigen::VectorXf, Eigen::aligned_allocator<Eigen::VectorXf>> ugtsa_move_rate_values;
+        for (auto &x : ucb_move_rates) ucb_move_rate_values.push_back(ucb_algorithm.value(x));
+        for (auto &x : ugtsa_move_rates) ugtsa_move_rate_values.push_back(ugtsa_algorithm.value(x));
+
+        std::cout << "ucb_move_rate_values" << std::endl;
+        for (auto &x : ucb_move_rate_values) {
+            std::cout << x << std::endl;
+        }
+        std::cout << "ugtsa_move_rate_values" << std::endl;
+        for (auto &x : ugtsa_move_rate_values) {
+            std::cout << x << std::endl;
+        }
+
+        // // auto pair = common::cost_function(session, ugtsa_move_rate_values, ucb_move_rate_values, ucb_move_rate_values);
+        // // std::cout << "loss: " << pair.first << std::endl;
+        // // std::cout << "gradients: " << std::endl;
+        // // for (auto & x : pair.second) {
+        // //     std::cout << x << std::endl;
+        // // }
+
+        computation_graph.accumulate_model_gradients(0, {});
+
+        // store model
+        common::store_model(session, graph_name + "2");
     }
-
-    computation_graph.accumulate_model_gradients(0, {});
-
-    std::cout << ugtsa_algorithm << std::endl;
 
     // close session
     TF_CHECK_OK(session->Close());

@@ -9,7 +9,7 @@ Algorithm::Algorithm(games::game::GameState *game_state, int worker_count, int g
     : algorithms::generalized_mcts::Algorithm(game_state, worker_count, grow_factor, removed_root_moves), exploration_factor(exploration_factor) {}
 
 Eigen::VectorXf Algorithm::value(int rate) {
-    return move_rates[rate];
+    return move_rates_[rate];
 }
 
 int Algorithm::empty_statistic(games::game::GameState *game_state) {
@@ -24,10 +24,10 @@ int Algorithm::move_rate(int parent_statistic, int child_statistic) {
     int cn = ns[child_statistic];
     auto &cw = ws[child_statistic];
 
-    move_rates.push_back(
+    move_rates_.push_back(
         cw / ((float) cn + 0.1) + exploration_factor * std::sqrt(std::log((float) pn + 0.1) / ((float) cn + 0.1)) * Eigen::VectorXf::Ones(cw.size()));
 
-    return move_rates.size() - 1;
+    return move_rates_.size() - 1;
 }
 
 int Algorithm::game_state_as_update(games::game::GameState *game_state) {
