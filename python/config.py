@@ -17,7 +17,7 @@ config = {
                             BasicModelBuilder(
                                 player_count=2,
                                 worker_count=None,
-                                statistic_size=40,
+                                statistic_size=150,
                                 update_size=20,
                                 game_state_board_shape=[7, 7],
                                 game_state_statistic_size=2,
@@ -35,8 +35,6 @@ config = {
                                     25, 25, 25],
                                 updated_statistic_lstm_state_sizes=[
                                     25, 25, 25],
-                                updated_statistic_hidden_output_sizes=[
-                                    25, 25, 25],
                                 updated_update_hidden_output_sizes=[
                                     25, 25, 25],
                                 cost_function_ucb_half_life=20000,
@@ -46,7 +44,7 @@ config = {
                                 model_builder=BasicModelBuilder(
                                     player_count=2,
                                     worker_count=None,
-                                    statistic_size=40,
+                                    statistic_size=150,
                                     update_size=150,
                                     game_state_board_shape=[7, 7],
                                     game_state_statistic_size=2,
@@ -63,8 +61,6 @@ config = {
                                     game_state_as_update_hidden_output_sizes=[
                                         25, 25, 25],
                                     updated_statistic_lstm_state_sizes=[
-                                        25, 25, 25],
-                                    updated_statistic_hidden_output_sizes=[
                                         25, 25, 25],
                                     updated_update_hidden_output_sizes=None,
                                     cost_function_ucb_half_life=20000,
@@ -92,9 +88,7 @@ config = {
                                 game_state_as_update_hidden_output_sizes=[
                                     500, 500, 500, 500, 500],
                                 updated_statistic_lstm_state_sizes=[
-                                    300, 300, 300],
-                                updated_statistic_hidden_output_sizes=[
-                                    500, 500, 500, 500, 500],
+                                    50, 50, 50],
                                 updated_update_hidden_output_sizes=[
                                     500, 500, 500, 500, 500],
                                 cost_function_ucb_half_life=20000,
@@ -121,9 +115,7 @@ config = {
                                     game_state_as_update_hidden_output_sizes=[
                                         500, 500, 500, 500, 500],
                                     updated_statistic_lstm_state_sizes=[
-                                        300, 300, 300],
-                                    updated_statistic_hidden_output_sizes=[
-                                        500, 500, 500, 500, 500],
+                                        50, 50, 50],
                                     updated_update_hidden_output_sizes=None,
                                     cost_function_ucb_half_life=20000,
                                     cost_function_regularization_factor=0.001),

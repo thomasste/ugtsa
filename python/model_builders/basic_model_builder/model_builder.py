@@ -15,7 +15,6 @@ class ModelBuilder(model_builder.ModelBuilder):
                  move_rate_hidden_output_sizes,
                  game_state_as_update_hidden_output_sizes,
                  updated_statistic_lstm_state_sizes,
-                 updated_statistic_hidden_output_sizes,
                  updated_update_hidden_output_sizes,
                  cost_function_ucb_half_life,
                  cost_function_regularization_factor):
@@ -34,13 +33,13 @@ class ModelBuilder(model_builder.ModelBuilder):
             game_state_as_update_hidden_output_sizes
         self.updated_statistic_lstm_state_sizes = \
             updated_statistic_lstm_state_sizes
-        self.updated_statistic_hidden_output_sizes = \
-            updated_statistic_hidden_output_sizes
         self.updated_update_hidden_output_sizes = \
             updated_update_hidden_output_sizes
         self.cost_function_ucb_half_life = cost_function_ucb_half_life
         self.cost_function_regularization_factor = \
             cost_function_regularization_factor
+
+        assert self.statistic_size == 2 * sum(updated_statistic_lstm_state_sizes)
 
     def _empty_statistic(self, training, global_step, seed, game_state_board,
                          game_state_statistic):
@@ -120,31 +119,65 @@ class ModelBuilder(model_builder.ModelBuilder):
 
     def _updated_statistic(self, training, global_step, seed, statistic,
                            update_count, updates):
-        inputs = tf.reshape(updates, (-1, self.worker_count, self.update_size))
-        print(inputs.get_shape())
+        split = tf.split(statistic, self.updated_statistic_lstm_state_sizes * 2, 1)
 
-        for i, state_size in enumerate(self.updated_statistic_lstm_state_sizes):
+        old_states = split[:len(self.updated_statistic_lstm_state_sizes)]  # c
+        old_outputs = split[len(self.updated_statistic_lstm_state_sizes):]  # h
+
+        new_states = []
+        new_outputs = []
+
+        input = updates[:, 0:self.update_size]
+
+        for i, (state_size, state, output) in enumerate(zip(self.updated_statistic_lstm_state_sizes, old_states, old_outputs)):
             with tf.variable_scope('lstm_layer_{}'.format(i)):
                 cell = tf.contrib.rnn.LSTMCell(state_size)
-                inputs, state = tf.nn.dynamic_rnn(cell, inputs, update_count, dtype=tf.float32)
-                print(inputs.get_shape())
+                input, lstm_state = cell(input, [state, output])
+                new_states += [lstm_state.c]
+                new_outputs += [lstm_state.h]
 
-        print(state.c.get_shape(), state.h.get_shape())
-        signal = tf.concat([statistic, state.c, state.h], axis=1)
-        print(signal.get_shape())
+        index_end = tf.reduce_max(update_count)
 
-        for idx, output_size in enumerate(
-                self.updated_statistic_hidden_output_sizes +
-                [self.statistic_size]):
-            with tf.variable_scope('dense_layer_{}'.format(idx)):
-                signal = dense_layer(signal, output_size)
-                signal = bias_layer(signal)
-                signal = activation_layer(signal)
-                seed, signal = dropout_layer(
-                    seed, signal, training=training)
-                print(signal.get_shape())
+        def condition(index, old_states, old_outputs):
+            return index < index_end
 
-        return signal
+        def body(index, old_states, old_outputs):
+            new_states = []
+            new_outputs = []
+
+            input = updates[:, index * self.update_size:(index + 1) * self.update_size]
+            input = tf.reshape(input, (-1, self.update_size))
+
+            for i, (state_size, state, output) in enumerate(
+                    zip(self.updated_statistic_lstm_state_sizes, old_states, old_outputs)):
+                with tf.variable_scope('lstm_layer_{}'.format(i), reuse=True):
+                    cell = tf.contrib.rnn.LSTMCell(state_size)
+                    input, lstm_state = cell(input, [state, output])
+                    print(lstm_state.c, lstm_state.h)
+                    new_states += [tf.where(update_count > index, lstm_state.c, state)]
+                    new_outputs += [tf.where(update_count > index, lstm_state.h, output)]
+
+            return [(index + 1), new_states, new_outputs]
+
+        _, new_states, new_outputs = tf.while_loop(condition, body, [tf.constant(1), new_states, new_outputs])
+
+        return tf.concat(new_states + new_outputs, axis=1)
+
+        # signal = tf.concat([statistic, new_states[-1], new_outputs[-1]], axis=1)
+        # print(signal.get_shape())
+        #
+        # for idx, output_size in enumerate(
+        #         self.updated_statistic_hidden_output_sizes +
+        #         [self.statistic_size]):
+        #     with tf.variable_scope('dense_layer_{}'.format(idx)):
+        #         signal = dense_layer(signal, output_size)
+        #         signal = bias_layer(signal)
+        #         signal = activation_layer(signal)
+        #         seed, signal = dropout_layer(
+        #             seed, signal, training=training)
+        #         print(signal.get_shape())
+        #
+        # return signal
 
     def _updated_update(self, training, global_step, seed, update, statistic):
         signal = tf.concat([update, statistic], axis=1)

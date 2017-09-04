@@ -7,7 +7,7 @@
 
 int main(int argc, char **argv) {
     // omringa__default__big_vertical_lstm_model_builder__10 2 10 300 300 7 7 2 2 30
-    // omringa__default__small_vertical_lstm_model_builder__10 2 10 40 150 7 7 2 2 30
+    // omringa__default__small_vertical_lstm_model_builder__10 2 10 150 150 7 7 2 2 30
     std::string graph_name = argv[1];
     int player_count = std::atoi(argv[2]);
     int worker_count = std::atoi(argv[3]);

@@ -78,8 +78,6 @@ class ModelBuilder(model_builder.ModelBuilder):
         old_states = split[:len(self.updated_update_lstm_state_sizes)]  # c
         old_outputs = split[len(self.updated_update_lstm_state_sizes):]  # h
 
-        states = split[:len(self.updated_update_lstm_state_sizes)]
-
         input = statistic
         new_states = []
         new_outputs = []
