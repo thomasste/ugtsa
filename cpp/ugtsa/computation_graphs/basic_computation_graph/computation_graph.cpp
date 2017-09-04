@@ -270,17 +270,20 @@ void ComputationGraph::run_batch() {
     }
 }
 
-void ComputationGraph::accumulate_model_gradients(int first_node, std::vector<std::pair<int, Eigen::VectorXf>, Eigen::aligned_allocator<std::pair<int, Eigen::VectorXf>>> y_grads) {
+void ComputationGraph::accumulate_model_gradients(int first_node, std::vector<int> y_grad_indices, std::vector<Eigen::VectorXf, Eigen::aligned_allocator<Eigen::VectorXf>> y_grad_values) {
     std::vector<std::vector<float>> gradients;
 
     for (int node_index = first_node; node_index < nodes.size(); node_index++) {
         gradients.push_back(std::vector<float>(nodes[node_index].output.size()));
     }
 
-    // TODO
-    // for (auto &y_grad : y_grads) {
-    //     gradients[y_grad.first - first_node] = y_grad.second;
-    // }
+    for (int i = 0; i < y_grad_indices.size(); i++) {
+        auto &gradient = gradients[y_grad_indices[i] - first_node];
+        auto &y_grad_value = y_grad_values[i];
+        for (int j = 0; j < y_grad_value.size(); j++) {
+            gradient[j] = y_grad_value[j];
+        }
+    }
 
     std::vector<Batch> batches(this->batches);
 
@@ -466,7 +469,7 @@ Eigen::VectorXf ComputationGraph::value(int index) {
     auto &node = nodes[index];
     Eigen::VectorXf result(node.output.size());
     for (int i = 0; i < node.output.size(); i++) {
-        result(i) = node.output[i];
+        result(i) = *((float *)&node.output[i]);
     }
     return result;
 }

@@ -74,14 +74,15 @@ int main(int argc, char **argv) {
             std::cout << x << std::endl;
         }
 
-        // // auto pair = common::cost_function(session, ugtsa_move_rate_values, ucb_move_rate_values, ucb_move_rate_values);
-        // // std::cout << "loss: " << pair.first << std::endl;
-        // // std::cout << "gradients: " << std::endl;
-        // // for (auto & x : pair.second) {
-        // //     std::cout << x << std::endl;
-        // // }
+        auto pair = common::cost_function(session, ugtsa_move_rate_values, ucb_move_rate_values, ucb_move_rate_values);
+        std::cout << "loss: " << pair.first << std::endl;
+        std::cout << "gradients: " << std::endl;
+        for (auto & x : pair.second) {
+            std::cout << x << std::endl;
+        }
 
-        computation_graph.accumulate_model_gradients(0, {});
+        common::zero_model_gradient_accumulators(session);
+        computation_graph.accumulate_model_gradients(0, ugtsa_move_rates, pair.second);
 
         // store model
         common::store_model(session, graph_name + "2");

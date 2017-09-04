@@ -82,7 +82,7 @@ class ModelBuilder(object):
 
         for gradient in gradients:
             gradient_accumulator = tf.Variable(tf.zeros(
-                gradient.get_shape(), gradient.dtype))
+                gradient.get_shape(), gradient.dtype), name="gradient_accumulator")
 
             tf.add_to_collection(
                 '{}/model_gradients'.format(variable_scope.name),
