@@ -28,14 +28,14 @@ std::vector<int> create_transformations(
         int game_state_statistic_size,
         int update_statistic_size,
         int seed_size) {
-    std::cout << "player_count " << player_count << std::endl
-              << "worker_count " << worker_count << std::endl
-              << "statistic_size " << statistic_size << std::endl
-              << "update_size " << update_size << std::endl
-              << "game_state_board_shape " << game_state_board_shape[0] << " " << game_state_board_shape[1] << std::endl
-              << "game_state_statistic_size " << game_state_statistic_size << std::endl
-              << "update_statistic_size " << update_statistic_size << std::endl
-              << "seed_size " << seed_size << std::endl;
+    // std::cout << "player_count " << player_count << std::endl
+    //           << "worker_count " << worker_count << std::endl
+    //           << "statistic_size " << statistic_size << std::endl
+    //           << "update_size " << update_size << std::endl
+    //           << "game_state_board_shape " << game_state_board_shape[0] << " " << game_state_board_shape[1] << std::endl
+    //           << "game_state_statistic_size " << game_state_statistic_size << std::endl
+    //           << "update_statistic_size " << update_statistic_size << std::endl
+    //           << "seed_size " << seed_size << std::endl;
 
     auto empty_statistic = computation_graph->transformation(
         "empty_statistic/seed:0",

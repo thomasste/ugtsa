@@ -27,13 +27,13 @@ int main(int argc, char **argv) {
     // load graph
     common::load_model(session, graph_name);
 
-    for (int i = 0; i < 1; i++) {
+    for (int i = 0; i < 10; i++) {
         // game state
         auto game_state = games::omringa::GameState();
-        // game_state.move_to_random_state();
-        // if (game_state.is_final()) {
-        //     game_state.undo_move();
-        // }
+        game_state.move_to_random_state();
+        if (game_state.is_final()) {
+            game_state.undo_move();
+        }
 
         auto ucb_game_state = std::unique_ptr<games::game::GameState>(game_state.copy());
         auto ugtsa_game_state = std::unique_ptr<games::game::GameState>(game_state.copy());
@@ -83,9 +83,10 @@ int main(int argc, char **argv) {
 
         common::zero_model_gradient_accumulators(session);
         computation_graph.accumulate_model_gradients(0, ugtsa_move_rates, pair.second);
+        common::apply_gradients(session);
 
         // store model
-        common::store_model(session, graph_name + "2");
+        common::store_model(session, graph_name);
     }
 
     // close session
