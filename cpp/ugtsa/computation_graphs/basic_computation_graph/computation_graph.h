@@ -33,6 +33,32 @@ class ComputationGraph : public computation_graphs::computation_graph::Computati
         std::vector<std::vector<long long>> seeds;
     };
 
+    template <typename T>
+    void copy_input_into_tensor(int row, int row_size, std::vector<int> &node_indices, tensorflow::Tensor &tensor) {
+        auto view = tensor.flat<T>();
+
+        int view_iterator = row * row_size;
+
+        for (int node_index : node_indices) {
+            for (int x : nodes[node_index].output) {
+                view(view_iterator++) = *((T *)&x);
+            }
+        }
+
+        while(view_iterator < (row + 1) * row_size) view(view_iterator++) = 0.;
+    }
+
+    template <typename T>
+    void copy_vector_into_tensor(int row, int row_size, std::vector<int> &buffer, tensorflow::Tensor &tensor) {
+        auto view = tensor.flat<T>();
+
+        int view_iterator = row * row_size;
+
+        for (int x : buffer) {
+            view(view_iterator++) = *((T *)&x);
+        }
+    }
+
     tensorflow::Session* session;
     std::string training_name;
     tensorflow::Tensor training_tensor;
@@ -62,7 +88,7 @@ public:
     int matrix(Eigen::MatrixXi matrix);
     int matrix(Eigen::MatrixXf matrix);
     int transformation_run(int transformation, std::vector<std::vector<int>> inputs);
-    void accumulate_model_gradients(int first_node, std::vector<std::pair<int, Eigen::VectorXf>, Eigen::aligned_allocator<std::pair<int, Eigen::VectorXf>>> y_grads);
+    void accumulate_model_gradients(int first_node, std::vector<int> y_grad_indices, std::vector<Eigen::VectorXf, Eigen::aligned_allocator<Eigen::VectorXf>> y_grad_values);
     void run_batch();
     Eigen::VectorXf value(int index);
 };

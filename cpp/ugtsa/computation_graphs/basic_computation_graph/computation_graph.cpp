@@ -146,43 +146,18 @@ void ComputationGraph::run_batch() {
         seeds
     });
 
-    // collect inputs
-    std::vector<int> transformations_input_count;
-    std::vector<std::vector<std::vector<int>>> transformations_input_buffers;
+    // transformation node indices
+    std::vector<std::vector<int>> transformations_node_indices;
 
-    for (auto &transformation : transformations) {
-        std::vector<std::vector<int>> transformation_input_buffers;
-        for (int i = 0; i < transformation.inputs.size(); i++) {
-            transformation_input_buffers.push_back({});
-        }
-        transformations_input_count.push_back(0);
-        transformations_input_buffers.push_back(transformation_input_buffers);
+    for (int transformation_index = 0; transformation_index < transformations.size(); transformation_index++) {
+        transformations_node_indices.push_back({});
     }
 
-    for(int node_index = batches[batches.size() - 2].nodes_end; node_index < batches[batches.size() - 1].nodes_end; node_index++) {
+    for (int node_index = batches[batches.size() - 2].nodes_end; node_index < batches[batches.size() - 1].nodes_end; node_index++) {
         auto &node = nodes[node_index];
         if (node.transformation != -1) {
-            transformations_input_count[node.transformation] += 1;
-            auto &transformation = transformations[node.transformation];
-            auto &transformation_input_buffers = transformations_input_buffers[node.transformation];
-
-            for (int input_index = 0; input_index < transformation.inputs.size(); input_index++) {
-                auto &node_input = node.inputs[input_index];
-                auto &transformation_input_buffer = transformation_input_buffers[input_index];
-                auto &transformation_input_size = transformation.input_sizes[input_index];
-
-                int partial_inputs_size = 0;
-
-                for (auto partial_input_node_index : node_input) {
-                    auto &partial_input = nodes[partial_input_node_index].output;
-                    partial_inputs_size += partial_input.size();
-                    transformation_input_buffer.insert(transformation_input_buffer.end(), partial_input.begin(), partial_input.end());
-                }
-
-                for (int i = 0; i < transformation_input_size - partial_inputs_size; i++) {
-                    transformation_input_buffer.push_back(0);
-                }
-            }
+            auto &transformation_node_indices = transformations_node_indices[node.transformation];
+            transformation_node_indices.push_back(node_index);
         }
     }
 
@@ -191,32 +166,36 @@ void ComputationGraph::run_batch() {
 
     for (int transformation_index = 0; transformation_index < transformations.size(); transformation_index++) {
         auto &transformation = transformations[transformation_index];
-        int transformation_input_count = transformations_input_count[transformation_index];
-        auto &transformation_input_buffers = transformations_input_buffers[transformation_index];
-        if (transformation_input_count > 0) {
+        auto &transformation_node_indices = transformations_node_indices[transformation_index];
+
+        if (transformation_node_indices.size() > 0) {
             for (int input_index = 0; input_index < transformation.inputs.size(); input_index++) {
-                auto &transformation_input_buffer = transformation_input_buffers[input_index];
                 auto &input_name = transformation.inputs[input_index];
                 auto &input_shape = transformation.input_shapes[input_index];
                 auto &input_type = transformation.input_types[input_index];
+                auto &input_size = transformation.input_sizes[input_index];
+
                 tensorflow::TensorShape tensor_shape;
-                tensor_shape.AddDim(transformation_input_count);
-                for (int input_dim : input_shape) {
-                    tensor_shape.AddDim(input_dim);
-                }
+                tensor_shape.AddDim(transformation_node_indices.size());
+                for (int dim : input_shape) tensor_shape.AddDim(dim);
+
                 tensorflow::Tensor tensor(input_type, tensor_shape);
-                if (input_type == tensorflow::DataType::DT_FLOAT) {
-                    for (int i = 0; i < transformation_input_buffer.size(); i++) {
-                        tensor.flat<float>()(i) = *((float *)&transformation_input_buffer[i]);
+
+                for (int i = 0; i < transformation_node_indices.size(); i++) {
+                    auto &node_index = transformation_node_indices[i];
+                    auto &node = nodes[node_index];
+                    auto &node_input = node.inputs[input_index];
+
+                    if (input_type == tensorflow::DataType::DT_FLOAT) {
+                        copy_input_into_tensor<float>(i, input_size, node_input, tensor);
+                    } else if (input_type == tensorflow::DataType::DT_INT32) {
+                        copy_input_into_tensor<int>(i, input_size, node_input, tensor);
+                    } else {
+                        std::cout << "unsupported type " << input_type << std::endl;
+                        exit(123);
                     }
-                } else if (input_type == tensorflow::DataType::DT_INT32) {
-                    for (int i = 0; i < transformation_input_buffer.size(); i++) {
-                        tensor.flat<int>()(i) = transformation_input_buffer[i];
-                    }
-                } else {
-                    std::cout << "unsupported type: " << input_type << std::endl;
-                    exit(1);
                 }
+
                 feed_dict.push_back(std::make_pair(input_name, tensor));
             }
         }
@@ -225,7 +204,7 @@ void ComputationGraph::run_batch() {
     for (int transformation_index = 0; transformation_index < transformations.size(); transformation_index++) {
         auto &transformation = transformations[transformation_index];
         auto &input_name = transformation.seed;
-        auto &seed = seeds[transformation_index];
+        auto &seed = batches.back().seeds[transformation_index];
 
         tensorflow::Tensor tensor(tensorflow::DataType::DT_INT64, tensorflow::TensorShape({seed.size()}));
         for (int i = 0; i < seed.size(); i++) {
@@ -240,12 +219,10 @@ void ComputationGraph::run_batch() {
     std::vector<std::string> fetch_outputs;
     std::vector<int> transformation_index_to_output;
     {
-        int shift = 0;
         for (int transformation_index = 0; transformation_index < transformations.size(); transformation_index++) {
-            transformation_index_to_output.push_back(shift);
-            if (transformations_input_count[transformation_index] > 0) {
+            transformation_index_to_output.push_back(fetch_outputs.size());
+            if (!transformations_node_indices[transformation_index].empty()) {
                 fetch_outputs.push_back(transformations[transformation_index].output);
-                shift++;
             }
         }
     }
@@ -255,32 +232,37 @@ void ComputationGraph::run_batch() {
     TF_CHECK_OK(session->Run(feed_dict, fetch_outputs, {}, &outputs));
 
     // set outputs
-    for(int node_index = batches[batches.size() - 1].nodes_end - 1; node_index >= batches[batches.size() - 2].nodes_end; node_index--) {
-        auto &node = nodes[node_index];
+    for (int transformation_index = 0; transformation_index < transformations.size(); transformation_index++) {
+        auto &transformation = transformations[transformation_index];
+        auto &transformation_node_indices = transformations_node_indices[transformation_index];
+        auto &output = outputs[transformation_index_to_output[transformation_index]];
 
-        if (node.transformation != -1) {
-            auto &transformation = transformations[node.transformation];
-            auto &output = outputs[transformation_index_to_output[node.transformation]];
-            for (int i = 0; i < transformation.output_size; i++) {
-                float f = output.matrix<float>()(transformations_input_count[node.transformation] - 1, i);
-                node.output.push_back(*((int*)&f));
+        for (int i = 0; i < transformation_node_indices.size(); i++) {
+            auto &node_index = transformation_node_indices[i];
+            auto &node = nodes[node_index];
+            auto view = output.matrix<float>();
+
+            for (int j = 0; j < transformation.output_size; j++) {
+                node.output.push_back(*((int*)&view(i, j)));
             }
-            transformations_input_count[node.transformation]--;
         }
     }
 }
 
-void ComputationGraph::accumulate_model_gradients(int first_node, std::vector<std::pair<int, Eigen::VectorXf>, Eigen::aligned_allocator<std::pair<int, Eigen::VectorXf>>> y_grads) {
-    std::vector<std::vector<float>> gradients;
+void ComputationGraph::accumulate_model_gradients(int first_node, std::vector<int> y_grad_indices, std::vector<Eigen::VectorXf, Eigen::aligned_allocator<Eigen::VectorXf>> y_grad_values) {
+    std::vector<std::vector<int>> gradients;
 
     for (int node_index = first_node; node_index < nodes.size(); node_index++) {
-        gradients.push_back(std::vector<float>(nodes[node_index].output.size()));
+        gradients.push_back(std::vector<int>(nodes[node_index].output.size(), 0));
     }
 
-    // TODO
-    // for (auto &y_grad : y_grads) {
-    //     gradients[y_grad.first - first_node] = y_grad.second;
-    // }
+    for (int i = 0; i < y_grad_indices.size(); i++) {
+        auto &gradient = gradients[y_grad_indices[i] - first_node];
+        auto &y_grad_value = y_grad_values[i];
+        for (int j = 0; j < y_grad_value.size(); j++) {
+            gradient[j] = *((int *)&y_grad_value(j));
+        }
+    }
 
     std::vector<Batch> batches(this->batches);
 
@@ -291,7 +273,7 @@ void ComputationGraph::accumulate_model_gradients(int first_node, std::vector<st
             transformations_node_indices.push_back({});
         }
 
-        for(int node_index = batches[batches.size() - 2].nodes_end; node_index < batches[batches.size() - 1].nodes_end; node_index++) {
+        for (int node_index = batches[batches.size() - 2].nodes_end; node_index < batches[batches.size() - 1].nodes_end; node_index++) {
             auto &node = nodes[node_index];
             if (node.transformation != -1) {
                 auto &transformation_node_indices = transformations_node_indices[node.transformation];
@@ -315,52 +297,22 @@ void ComputationGraph::accumulate_model_gradients(int first_node, std::vector<st
 
                     tensorflow::TensorShape tensor_shape;
                     tensor_shape.AddDim(transformation_node_indices.size());
-                    for (int dim : input_shape) {
-                        tensor_shape.AddDim(dim);
-                    }
+                    for (int dim : input_shape) tensor_shape.AddDim(dim);
 
                     tensorflow::Tensor tensor(input_type, tensor_shape);
-                    if (input_type == tensorflow::DataType::DT_FLOAT) {
-                        auto tensor_view = tensor.flat<float>();
-                        int tensor_view_iterator = 0;
-                        for (auto node_index : transformation_node_indices) {
-                            auto &node = nodes[node_index];
-                            auto &node_input = node.inputs[input_index];
 
-                            int partial_inputs_size = 0;
+                    for (int i = 0; i < transformation_node_indices.size(); i++) {
+                        auto &node_index = transformation_node_indices[i];
+                        auto &node = nodes[node_index];
 
-                            for (auto partial_input_node_index : node_input) {
-                                auto &partial_input = nodes[partial_input_node_index].output;
-                                partial_inputs_size += partial_input.size();
-                                for (auto x : partial_input) tensor_view(tensor_view_iterator++) = *((float *)&x);
-                            }
-
-                            while (tensor_view_iterator < input_size) {
-                                tensor_view(tensor_view_iterator++) = 0.;
-                            }
+                        if (input_type == tensorflow::DataType::DT_FLOAT) {
+                            copy_input_into_tensor<float>(i, input_size, node.inputs[input_index], tensor);
+                        } else if (input_type == tensorflow::DataType::DT_INT32) {
+                            copy_input_into_tensor<int>(i, input_size, node.inputs[input_index], tensor);
+                        } else {
+                            std::cout << "unsupported type " << input_type << std::endl;
+                            exit(123);
                         }
-                    } else if (input_type == tensorflow::DataType::DT_INT32) {
-                        auto tensor_view = tensor.flat<int>();
-                        int tensor_view_iterator = 0;
-                        for (auto node_index : transformation_node_indices) {
-                            auto &node = nodes[node_index];
-                            auto &node_input = node.inputs[input_index];
-
-                            int partial_inputs_size = 0;
-
-                            for (auto partial_input_node_index : node_input) {
-                                auto &partial_input = nodes[partial_input_node_index].output;
-                                partial_inputs_size += partial_input.size();
-                                for (auto x : partial_input) tensor_view(tensor_view_iterator++) = *((int *)&x);
-                            }
-
-                            while (tensor_view_iterator < input_size) {
-                                tensor_view(tensor_view_iterator++) = 0;
-                            }
-                        }
-                    } else {
-                        std::cout << "unknown input type " << input_type << std::endl;
-                        exit(100);
                     }
 
                     feed_dict.push_back(std::make_pair(input_name, tensor));
@@ -369,18 +321,13 @@ void ComputationGraph::accumulate_model_gradients(int first_node, std::vector<st
                 {
                     tensorflow::TensorShape tensor_shape;
                     tensor_shape.AddDim(transformation_node_indices.size());
-                    for (int dim : transformation.output_shape) {
-                        tensor_shape.AddDim(dim);
-                    }
+                    for (int dim : transformation.output_shape) tensor_shape.AddDim(dim);
 
                     tensorflow::Tensor tensor(transformation.output_type, tensor_shape);
-                    if (transformation.output_type == tensorflow::DataType::DT_FLOAT) {
-                        auto tensor_view = tensor.flat<float>();
-                        int tensor_view_iterator = 0;
-                        for (auto node_index : transformation_node_indices) for (float x : gradients[node_index - first_node]) tensor_view(tensor_view_iterator++) = x;
-                    } else {
-                        std::cout << "unknown output type " << transformation.output_type << std::endl;
-                        exit(100);
+
+                    for (int i = 0; i < transformation_node_indices.size(); i++) {
+                        auto &node_index = transformation_node_indices[i];
+                        copy_vector_into_tensor<float>(i, transformation.output_size, gradients[node_index - first_node], tensor);
                     }
 
                     feed_dict.push_back(std::make_pair(transformation.output_gradient, tensor));
@@ -433,6 +380,16 @@ void ComputationGraph::accumulate_model_gradients(int first_node, std::vector<st
         std::vector<tensorflow::Tensor> outputs;
         TF_CHECK_OK(session->Run(feed_dict, fetch_outputs, run_outputs, &outputs));
 
+        // std::cout << "outputs " << batches[batches.size() - 2].nodes_end << std::endl;
+        // for (int i = 0; i < outputs.size(); i++) {
+        //     std::cout << fetch_outputs[i] << std::endl;
+        //     auto output = outputs[i].flat<float>();
+        //     for (int i = 0; i < output.size(); i++) {
+        //         std::cout << output(i) << " ";
+        //     }
+        //     std::cout << std::endl;
+        // }
+
         // add gradients
         for (int transformation_index = 0; transformation_index < transformations.size(); transformation_index++) {
             auto &transformation = transformations[transformation_index];
@@ -451,7 +408,10 @@ void ComputationGraph::accumulate_model_gradients(int first_node, std::vector<st
                         auto output_view = output.matrix<float>();
                         int output_view_iterator = 0;
                         for (int partial_input_node_index : node_input) {
-                            for (auto &x : gradients[partial_input_node_index - first_node]) x += output_view(i, output_view_iterator++);
+                            auto &gradient = gradients[partial_input_node_index - first_node];
+                            for (auto &x : gradient) {
+                                (*((float*)&x)) += output_view(i, output_view_iterator++);
+                            }
                         }
                     }
                 }
@@ -466,7 +426,7 @@ Eigen::VectorXf ComputationGraph::value(int index) {
     auto &node = nodes[index];
     Eigen::VectorXf result(node.output.size());
     for (int i = 0; i < node.output.size(); i++) {
-        result(i) = node.output[i];
+        result(i) = *((float *)&node.output[i]);
     }
     return result;
 }

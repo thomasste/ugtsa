@@ -9,6 +9,7 @@ cc_library(
         "computation_graphs/computation_graph/computation_graph.cpp",
         "games/game/game_state.cpp",
         "games/omringa/game_state.cpp",
+        "common.cpp",
     ],
     hdrs = [
         "algorithms/algorithm/algorithm.h",
@@ -19,10 +20,12 @@ cc_library(
         "computation_graphs/computation_graph/computation_graph.h",
         "games/game/game_state.h",
         "games/omringa/game_state.h",
+        "common.h",
     ],
     deps = [
         "//tensorflow/core:tensorflow",
-        "//third_party/eigen3"
+        "//third_party/eigen3",
+        "@boost//:filesystem",
     ]
 )
 

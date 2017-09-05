@@ -101,6 +101,9 @@ with tf.Session(config=config, graph=graph) as session:
         # calculate move rate gradients
         move_rates = ugtsa_algorithm.move_rates()
 
+        print("UGTSA move rates")
+        print([ugtsa_algorithm.value(move_rate) for move_rate in move_rates])
+
         move_rate_values = []
         ucb_move_rate_values = []
         ugtsa_move_rate_values = []

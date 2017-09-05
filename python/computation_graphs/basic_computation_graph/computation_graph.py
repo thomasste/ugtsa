@@ -237,6 +237,11 @@ class ComputationGraph(computation_graph.ComputationGraph):
                     **input_feed_dict,
                     **output_gradient_feed_dict})
 
+            # print("gradients {}".format(batches[-2].nodes_end))
+            # for result, input_gradients_fetch in zip(results['input_gradients'].values(), input_gradients_fetches.values()):
+            #     print(input_gradients_fetch)
+            #     print(result)
+
             for node_index in range(
                     batches[-2].nodes_end, batches[-1].nodes_end):
                 node = self.nodes[node_index]

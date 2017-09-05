@@ -30,6 +30,7 @@ def batch_normalization_layer(signal):
 
 def activation_layer(signal):
     return tf.nn.relu(signal)
+    # return tf.nn.sigmoid(signal)
 
 
 def max_pool_layer(signal, window_shape):
@@ -54,10 +55,11 @@ def bias_layer(signal, constant=0.):
 
 
 def dropout_layer(seed, signal, keep_prob=0.5, training=False):
+    # return seed, signal
     s, seed = seed[:2], seed[2:]
     rand = stateless_random_uniform(tf.shape(signal), s)
     mask = tf.to_float(rand < keep_prob)
     return seed, tf.cond(
         training,
-        lambda: (signal * mask) / keep_prob,
+        lambda: (signal * mask) / tf.sqrt(keep_prob),
         lambda: signal)
