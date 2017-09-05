@@ -70,3 +70,13 @@ cc_binary(
         "//third_party/eigen3",
     ]
 )
+
+cc_binary(
+    name = "speed_test_3",
+    srcs = ["speed_test_3.cpp"],
+    deps = [
+        ":libugtsa",
+        "//tensorflow/core:tensorflow",
+        "//third_party/eigen3",
+    ]
+)
