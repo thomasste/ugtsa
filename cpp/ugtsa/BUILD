@@ -27,7 +27,7 @@ cc_library(
     deps = [
         "//tensorflow/core:tensorflow",
         "//third_party/eigen3",
-        "@boost//:filesystem",
+        #"@boost//:filesystem",
     ]
 )
 

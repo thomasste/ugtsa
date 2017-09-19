@@ -10,10 +10,8 @@ from tensorflow.python.saved_model import builder
 
 import argparse
 import logging
-import numpy as np
 import sys
 import tensorflow as tf
-import time
 
 logging.basicConfig(
     stream=sys.stdout, level=logging.DEBUG,
@@ -40,7 +38,7 @@ with graph.as_default():
     model_builder.build()
 
 with tf.Session(graph=graph) as session:
-    name = '{}__{}__{}__{}'.format(
+    name = '{}__{}__{}__{}__0'.format(
         args.game, args.algorithm, args.model_builder, args.worker_count)
 
     # initial model
@@ -51,7 +49,7 @@ with tf.Session(graph=graph) as session:
 
     # save graph
     tf.train.write_graph(
-        session.graph.as_graph_def(), '../cpp/cpu_build/graphs/',
+        session.graph.as_graph_def(), '../cpp/build/graphs/',
         '{}.pb'.format(name),
         as_text=False)
 
@@ -59,12 +57,9 @@ with tf.Session(graph=graph) as session:
     saver_def = saver.as_saver_def()
     session.run(
         graph.get_operation_by_name(saver_def.save_tensor_name[:-2]),
-        {graph.get_tensor_by_name(saver_def.filename_tensor_name): "../cpp/cpu_build/models/{}".format(name)})
+        {graph.get_tensor_by_name(saver_def.filename_tensor_name): "../cpp/build/models/{}".format(name)})
 
     print("file_name: {}".format(saver_def.filename_tensor_name))
     print("restore_op: {}".format(saver_def.restore_op_name))
     print("save_op: {}".format(saver_def.save_tensor_name))
 
-    # wtf = builder.SavedModelBuilder("../cpp/cpu_build/models/dupa")
-    # wtf.add_meta_graph_and_variables(session, {})
-    # wtf.save()
