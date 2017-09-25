@@ -369,6 +369,17 @@ class ModelBuilder(object):
             initial_value=0, trainable=False, dtype=tf.int32,
             name='global_step')
 
+        for name in [
+                'player_count',
+                'worker_count',
+                'statistic_size',
+                'update_size',
+                'game_state_board_shape',
+                'game_state_statistic_size',
+                'update_statistic_size',
+                'seed_size']:
+            tf.Variable(initial_value=getattr(self, name), trainable=False, dtype=tf.int32, name=name)
+
         self.__build_empty_statistic_graph(training, global_step)
         self.__build_move_rate_graph(training, global_step)
         self.__build_game_state_as_update_graph(training, global_step)

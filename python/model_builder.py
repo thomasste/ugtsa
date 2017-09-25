@@ -1,22 +1,7 @@
 from config import config
-from games.game.game_state import GameState
-from copy import deepcopy
-from algorithms.ucb_mcts.algorithm import Algorithm as UCBAlgorithm
-from computation_graphs.basic_computation_graph.computation_graph import \
-    ComputationGraph
-from model_builders.model_builder.model_builder import ModelBuilder
-
-from tensorflow.python.saved_model import builder
 
 import argparse
-import logging
-import sys
 import tensorflow as tf
-
-logging.basicConfig(
-    stream=sys.stdout, level=logging.DEBUG,
-    format='%(asctime)s %(message)s', datefmt='%H:%M:%S')
-logger = logging.getLogger()
 
 argument_parser = argparse.ArgumentParser()
 argument_parser.add_argument('game', type=str)
@@ -38,8 +23,9 @@ with graph.as_default():
     model_builder.build()
 
 with tf.Session(graph=graph) as session:
-    name = '{}__{}__{}__{}__0'.format(
+    graph_name = '{}__{}__{}__{}'.format(
         args.game, args.algorithm, args.model_builder, args.worker_count)
+    model_name = '{}.0'.format(graph_name)
 
     # initial model
     session.run(tf.global_variables_initializer())
@@ -50,16 +36,15 @@ with tf.Session(graph=graph) as session:
     # save graph
     tf.train.write_graph(
         session.graph.as_graph_def(), '../cpp/build/graphs/',
-        '{}.pb'.format(name),
+        '{}.pb'.format(graph_name),
         as_text=False)
 
     # save model
     saver_def = saver.as_saver_def()
     session.run(
         graph.get_operation_by_name(saver_def.save_tensor_name[:-2]),
-        {graph.get_tensor_by_name(saver_def.filename_tensor_name): "../cpp/build/models/{}".format(name)})
+        {graph.get_tensor_by_name(saver_def.filename_tensor_name): "../cpp/build/models/{}".format(model_name)})
 
     print("file_name: {}".format(saver_def.filename_tensor_name))
     print("restore_op: {}".format(saver_def.restore_op_name))
     print("save_op: {}".format(saver_def.save_tensor_name))
-

@@ -5,35 +5,46 @@ cc_library(
         "algorithms/computation_graph_mcts/algorithm.cpp",
         "algorithms/generalized_mcts/algorithm.cpp",
         "algorithms/ucb_mcts/algorithm.cpp",
+        "common/model_helpers.cpp",
         "computation_graphs/basic_computation_graph/computation_graph.cpp",
         "computation_graphs/computation_graph/computation_graph.cpp",
         "computation_graphs/synchronized_computation_graph/computation_graph.cpp",
         "games/game/game_state.cpp",
         "games/omringa/game_state.cpp",
-        "common.cpp",
     ],
     hdrs = [
         "algorithms/algorithm/algorithm.h",
         "algorithms/computation_graph_mcts/algorithm.h",
         "algorithms/generalized_mcts/algorithm.h",
         "algorithms/ucb_mcts/algorithm.h",
+        "common/barrier.h",
+        "common/model_helpers.h",
         "computation_graphs/basic_computation_graph/computation_graph.h",
         "computation_graphs/computation_graph/computation_graph.h",
         "computation_graphs/synchronized_computation_graph/computation_graph.h",
         "games/game/game_state.h",
         "games/omringa/game_state.h",
-        "common.h",
     ],
     deps = [
         "//tensorflow/core:tensorflow",
         "//third_party/eigen3",
-        #"@boost//:filesystem",
+        "@boost//:filesystem",
     ]
 )
 
+#cc_binary(
+#    name = "ugtsa",
+#    srcs = ["main.cpp"],
+#    deps = [
+#        ":libugtsa",
+#        "//tensorflow/core:tensorflow",
+#        "//third_party/eigen3",
+#    ]
+#)
+
 cc_binary(
-    name = "ugtsa",
-    srcs = ["main.cpp"],
+    name = "solution_1",
+    srcs = ["solution_1.cpp"],
     deps = [
         ":libugtsa",
         "//tensorflow/core:tensorflow",
@@ -41,42 +52,32 @@ cc_binary(
     ]
 )
 
-cc_binary(
-    name = "solution_001",
-    srcs = ["solution_001.cpp"],
-    deps = [
-        ":libugtsa",
-        "//tensorflow/core:tensorflow",
-        "//third_party/eigen3",
-    ]
-)
+#cc_binary(
+#    name = "speed_test_1",
+#    srcs = ["speed_test_1.cpp"],
+#    deps = [
+#        ":libugtsa",
+#        "//tensorflow/core:tensorflow",
+#        "//third_party/eigen3",
+#    ]
+#)
 
-cc_binary(
-    name = "speed_test_1",
-    srcs = ["speed_test_1.cpp"],
-    deps = [
-        ":libugtsa",
-        "//tensorflow/core:tensorflow",
-        "//third_party/eigen3",
-    ]
-)
+#cc_binary(
+#    name = "speed_test_2",
+#    srcs = ["speed_test_2.cpp"],
+#    deps = [
+#        ":libugtsa",
+#        "//tensorflow/core:tensorflow",
+#        "//third_party/eigen3",
+#    ]
+#)
 
-cc_binary(
-    name = "speed_test_2",
-    srcs = ["speed_test_2.cpp"],
-    deps = [
-        ":libugtsa",
-        "//tensorflow/core:tensorflow",
-        "//third_party/eigen3",
-    ]
-)
-
-cc_binary(
-    name = "speed_test_3",
-    srcs = ["speed_test_3.cpp"],
-    deps = [
-        ":libugtsa",
-        "//tensorflow/core:tensorflow",
-        "//third_party/eigen3",
-    ]
-)
+#cc_binary(
+#    name = "speed_test_3",
+#    srcs = ["speed_test_3.cpp"],
+#    deps = [
+#        ":libugtsa",
+#        "//tensorflow/core:tensorflow",
+#        "//third_party/eigen3",
+#    ]
+#)

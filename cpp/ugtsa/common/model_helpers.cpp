@@ -1,41 +1,82 @@
-#include "ugtsa/common.h"
+#include "ugtsa/common/model_helpers.h"
+#include "boost/filesystem.hpp"
+#include <regex>
 
 namespace common {
+namespace model_helpers {
 
 void load_model(tensorflow::Session* session, std::string graph_name) {
     auto graph_def = tensorflow::GraphDef();
     TF_CHECK_OK(tensorflow::ReadBinaryProto(tensorflow::Env::Default(), "graphs/" + graph_name + ".pb", &graph_def));
     TF_CHECK_OK(session->Create(graph_def));
 
+    // get last save
+    int last_global_step = -1;
+
+    std::smatch match;
+    std::regex regex("^" + graph_name + ".([0-9]+).index$");
+    for (boost::filesystem::directory_iterator it("models"); it != boost::filesystem::directory_iterator(); ++it) {
+        if (std::regex_search(it->path().filename().string(), match, regex)) {
+            int tmp = std::atoi(match[1].str().c_str());
+            if (tmp > last_global_step) last_global_step = tmp;
+        }
+    }
+
+    std::cout << "last global step: " << last_global_step << std::endl;
+
     auto model_path = tensorflow::Tensor(tensorflow::DT_STRING, tensorflow::TensorShape({1, 1}));
-    model_path.matrix<std::string>()(0, 0) = "models/" + graph_name;
+    model_path.matrix<std::string>()(0, 0) = "models/" + graph_name + "." + std::to_string(last_global_step);
     TF_CHECK_OK(session->Run({{"save/Const:0", model_path}}, {}, {"save/restore_all"}, nullptr));
 }
 
 void store_model(tensorflow::Session* session, std::string graph_name) {
     auto model_path = tensorflow::Tensor(tensorflow::DT_STRING, tensorflow::TensorShape({1, 1}));
-    model_path.matrix<std::string>()(0, 0) = "models/" + graph_name;
+    model_path.matrix<std::string>()(0, 0) = "models/" + graph_name + "." + std::to_string(global_step(session));
     TF_CHECK_OK(session->Run({{"save/Const", model_path}}, {}, {"save/control_dependency:0"}, nullptr));
 }
 
+int worker_count(tensorflow::Session* session) {
+    std::vector<tensorflow::Tensor> outputs;
+    session->Run({}, {"worker_count:0"}, {}, &outputs);
+    return outputs[0].scalar<int>()(0);
+}
+
+int global_step(tensorflow::Session* session) {
+    std::vector<tensorflow::Tensor> outputs;
+    session->Run({}, {"global_step:0"}, {}, &outputs);
+    return outputs[0].scalar<int>()(0);
+}
+
 std::vector<int> create_transformations(
-        computation_graphs::computation_graph::ComputationGraph *computation_graph,
-        int player_count,
-        int worker_count,
-        int statistic_size,
-        int update_size,
-        std::vector<int> game_state_board_shape,
-        int game_state_statistic_size,
-        int update_statistic_size,
-        int seed_size) {
-    // std::cout << "player_count " << player_count << std::endl
-    //           << "worker_count " << worker_count << std::endl
-    //           << "statistic_size " << statistic_size << std::endl
-    //           << "update_size " << update_size << std::endl
-    //           << "game_state_board_shape " << game_state_board_shape[0] << " " << game_state_board_shape[1] << std::endl
-    //           << "game_state_statistic_size " << game_state_statistic_size << std::endl
-    //           << "update_statistic_size " << update_statistic_size << std::endl
-    //           << "seed_size " << seed_size << std::endl;
+        tensorflow::Session* session, computation_graphs::computation_graph::ComputationGraph *computation_graph) {
+
+    std::vector<tensorflow::Tensor> outputs;
+    session->Run({}, {
+        "player_count:0",
+        "worker_count:0",
+        "statistic_size:0",
+        "update_size:0",
+        "game_state_board_shape:0",
+        "game_state_statistic_size:0",
+        "update_statistic_size:0",
+        "seed_size:0"}, {}, &outputs);
+
+    int player_count = outputs[0].scalar<int>()(0);
+    int worker_count = outputs[1].scalar<int>()(0);
+    int statistic_size = outputs[2].scalar<int>()(0);
+    int update_size = outputs[3].scalar<int>()(0);
+    std::vector<int> game_state_board_shape = {outputs[4].flat<int>()(0), outputs[4].flat<int>()(1)};
+    int game_state_statistic_size = outputs[5].scalar<int>()(0);
+    int update_statistic_size = outputs[6].scalar<int>()(0);
+    int seed_size = outputs[7].scalar<int>()(0);
+    std::cout << "player_count " << player_count << std::endl
+              << "worker_count " << worker_count << std::endl
+              << "statistic_size " << statistic_size << std::endl
+              << "update_size " << update_size << std::endl
+              << "game_state_board_shape " << game_state_board_shape[0] << " " << game_state_board_shape[1] << std::endl
+              << "game_state_statistic_size " << game_state_statistic_size << std::endl
+              << "update_statistic_size " << update_statistic_size << std::endl
+              << "seed_size " << seed_size << std::endl;
 
     auto empty_statistic = computation_graph->transformation(
         "empty_statistic/seed:0",
@@ -152,4 +193,5 @@ void apply_gradients(tensorflow::Session* session) {
     session->Run({}, {}, {"apply_gradients/apply_gradients"}, nullptr);
 }
 
+}
 }
