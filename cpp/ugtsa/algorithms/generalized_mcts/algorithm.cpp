@@ -7,7 +7,7 @@ namespace algorithms {
 namespace generalized_mcts {
 
 Algorithm::Algorithm(games::game::GameState *game_state, int worker_count, int grow_factor, std::vector<int> removed_root_moves)
-    : algorithms::algorithm::Algorithm(game_state), grow_factor(grow_factor), removed_root_moves(removed_root_moves) {
+    : algorithms::algorithm::Algorithm(game_state), grow_factor(grow_factor), removed_root_moves(removed_root_moves), generator(rand()) {
     for (int i = 0; i < worker_count; i++) {
         workers.push_back({0, Direction::DOWN, std::unique_ptr<games::game::GameState>(game_state->copy()), -1});
     }
@@ -193,12 +193,14 @@ void Algorithm::down_move_case(std::vector<int> &group) {
             probabilities.push_back(value(child.move_rate_cache)(game_state->player));
         }
 
+        // TODO: remove
         if (node.parent == -1) {
             for (auto it = removed_root_moves.begin(); it != removed_root_moves.end(); it++) {
                 probabilities[*it] = 0.;
             }
         }
 
+        // TODO: scale different way
         float sum = 0.;
         for (auto &probability : probabilities) sum += probability;
         for (auto &probability : probabilities) probability /= sum;

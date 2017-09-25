@@ -8,14 +8,6 @@ namespace omringa {
 GameState::GameState(int board_size, int group_penalty, int min_bet, int max_bet)
     : games::game::GameState(0, 2), board_size(board_size), group_penalty(group_penalty), min_bet(min_bet), max_bet(max_bet),
       state(State::BET), bets {-1, -1}, chosen_player(-1), board(Eigen::MatrixXi::Zero(board_size, board_size)) {
-//    board << 1, 2, 1, 1, 2, 2, 2,
-//             2, 2, 1, 1, 1, 1, 2,
-//             2, 2, 1, 2, 1, 1, 2,
-//             2, 1, 1, 2, 1, 1, 2,
-//             2, 2, 2, 1, 2, 2, 2,
-//             1, 2, 1, 2, 1, 1, 1,
-//             2, 1, 1, 1, 1, 1, 2;
-
     for (int x = 0; x < board_size; x++) {
         for (int y = 0; y < board_size; y++) {
             empty_positions.push_back({x, y});

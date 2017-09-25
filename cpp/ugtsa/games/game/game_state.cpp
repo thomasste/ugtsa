@@ -1,3 +1,4 @@
+#include "ugtsa/algorithms/ucb_mcts/algorithm.h"
 #include "ugtsa/games/game/game_state.h"
 
 #include <cstdlib>
@@ -27,7 +28,16 @@ void GameState::move_to_random_state() {
     int counter = 0;
 
     while (!is_final()) {
-        apply_move(std::uniform_int_distribution<int>(0, move_count() - 1)(generator));
+        if (player == -1) {
+            apply_move(std::uniform_int_distribution<int>(0, move_count() - 1)(generator));
+        } else {
+            auto game_state = std::unique_ptr<GameState>(copy());
+            auto algorithm = algorithms::ucb_mcts::Algorithm(game_state.get(), 10, 5, {}, std::sqrt(2.));
+            for (int i = 0; i < 3000; i++) {
+                algorithm.improve();
+            }
+            apply_move(algorithm.best_move());
+        }
         counter += 1;
     }
 

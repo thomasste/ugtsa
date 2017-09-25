@@ -4,7 +4,7 @@ namespace computation_graphs {
 namespace basic_computation_graph {
 
 ComputationGraph::ComputationGraph(tensorflow::Session* session, std::string training_name, bool training)
-        : computation_graphs::computation_graph::ComputationGraph(), session(session), training_name(training_name) {
+        : computation_graphs::computation_graph::ComputationGraph(), session(session), training_name(training_name), generator(rand()) {
     training_tensor = tensorflow::Tensor(tensorflow::DataType::DT_BOOL, tensorflow::TensorShape({}));
     training_tensor.scalar<bool>()(0) = training;
 

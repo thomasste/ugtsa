@@ -1,38 +1,11 @@
 #pragma once
 
 #include <mutex>
+#include "ugtsa/common/barrier.h"
 #include "ugtsa/computation_graphs/computation_graph/computation_graph.h"
 
 namespace computation_graphs {
 namespace synchronized_computation_graph {
-
-class Barrier {
-public:
-    explicit Barrier(std::size_t iCount) :
-      mThreshold(iCount),
-      mCount(iCount),
-      mGeneration(0) {
-    }
-
-    void wait() {
-        std::unique_lock<std::mutex> lLock{mMutex};
-        auto lGen = mGeneration;
-        if (!--mCount) {
-            mGeneration++;
-            mCount = mThreshold;
-            mCond.notify_all();
-        } else {
-            mCond.wait(lLock, [this, lGen] { return lGen != mGeneration; });
-        }
-    }
-
-private:
-    std::mutex mMutex;
-    std::condition_variable mCond;
-    std::size_t mThreshold;
-    std::size_t mCount;
-    std::size_t mGeneration;
-};
 
 class ComputationGraph : public computation_graphs::computation_graph::ComputationGraph {
     computation_graphs::computation_graph::ComputationGraph *computation_graph;
@@ -40,7 +13,7 @@ class ComputationGraph : public computation_graphs::computation_graph::Computati
 
     int waiting_threads;
     std::mutex mutex;
-    Barrier barrier;
+    common::barrier::Barrier barrier;
 
 public:
     ComputationGraph(computation_graphs::computation_graph::ComputationGraph *computation_graph, int thread_count);

@@ -15,7 +15,7 @@ public:
     int player_count;
     std::default_random_engine generator;
 
-    GameState(int player, int player_count) : player(player), player_count(player_count) {}
+    GameState(int player, int player_count) : player(player), player_count(player_count), generator(rand()) {}
 
     virtual int move_count() const = 0;
     virtual void apply_move(int index) = 0;

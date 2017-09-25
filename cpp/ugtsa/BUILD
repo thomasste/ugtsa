@@ -32,16 +32,6 @@ cc_library(
     ]
 )
 
-#cc_binary(
-#    name = "ugtsa",
-#    srcs = ["main.cpp"],
-#    deps = [
-#        ":libugtsa",
-#        "//tensorflow/core:tensorflow",
-#        "//third_party/eigen3",
-#    ]
-#)
-
 cc_binary(
     name = "solution_1",
     srcs = ["solution_1.cpp"],
@@ -52,32 +42,12 @@ cc_binary(
     ]
 )
 
-#cc_binary(
-#    name = "speed_test_1",
-#    srcs = ["speed_test_1.cpp"],
-#    deps = [
-#        ":libugtsa",
-#        "//tensorflow/core:tensorflow",
-#        "//third_party/eigen3",
-#    ]
-#)
-
-#cc_binary(
-#    name = "speed_test_2",
-#    srcs = ["speed_test_2.cpp"],
-#    deps = [
-#        ":libugtsa",
-#        "//tensorflow/core:tensorflow",
-#        "//third_party/eigen3",
-#    ]
-#)
-
-#cc_binary(
-#    name = "speed_test_3",
-#    srcs = ["speed_test_3.cpp"],
-#    deps = [
-#        ":libugtsa",
-#        "//tensorflow/core:tensorflow",
-#        "//third_party/eigen3",
-#    ]
-#)
+cc_binary(
+    name = "test_1",
+    srcs = ["test_1.cpp"],
+    deps = [
+        ":libugtsa",
+        "//tensorflow/core:tensorflow",
+        "//third_party/eigen3",
+    ]
+)
