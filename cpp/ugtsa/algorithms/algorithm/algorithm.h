@@ -16,7 +16,7 @@ public:
 
     virtual void improve() = 0;
     virtual std::vector<int> move_rates() = 0;
-    virtual Eigen::VectorXf value(int rate) = 0;
+    virtual Eigen::VectorXf value(int rate) const = 0;
 
     int best_move();
 

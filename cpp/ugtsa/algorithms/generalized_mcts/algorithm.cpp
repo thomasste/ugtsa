@@ -177,7 +177,14 @@ void Algorithm::serialize(std::ostream &stream) const {
     for (auto& worker : workers) stream << worker << std::endl;
     stream << "NODES " << tree.size() << std::endl;
     for (int i = 0; i < 20 && i < tree.size(); i++) {
-        stream << tree[i] << std::endl;
+        stream << tree[i] << " move_rate for root player ";
+        if (tree[i].move_rate_cache != -1) {
+            auto v = value(tree[i].move_rate_cache);
+            stream << v(game_state->player) / v.sum();
+        } else {
+            stream << "--";
+        }
+        stream << std::endl;
     }
 }
 
@@ -190,7 +197,8 @@ void Algorithm::down_move_case(std::vector<int> &group) {
     if (game_state->player != -1) {
         for (int i = node.children[0]; i < node.children[1]; i++) {
             Node& child = tree[i];
-            probabilities.push_back(value(child.move_rate_cache)(game_state->player));
+            auto v = value(child.move_rate_cache);
+            probabilities.push_back(v(game_state->player) / v.sum());
         }
 
         // TODO: remove
@@ -200,10 +208,34 @@ void Algorithm::down_move_case(std::vector<int> &group) {
             }
         }
 
-        // TODO: scale different way
-        float sum = 0.;
-        for (auto &probability : probabilities) sum += probability;
-        for (auto &probability : probabilities) probability /= sum;
+        // scale to 0..1
+        {
+            float sum = 0.;
+            for (auto &probability : probabilities) sum += probability;
+            for (auto &probability : probabilities) probability /= sum;
+        }
+
+        // max
+        float min = 1.;
+        {
+            for (auto probability : probabilities) if (probability < min) min = probability;
+        }
+        // exp
+        {
+            for (auto &probability : probabilities) probability = std::exp(80. * (probability - min));
+        }
+        // scale to 0..1
+        {
+            float sum = 0.;
+            for (auto &probability : probabilities) sum += probability;
+            for (auto &probability : probabilities) probability /= sum;
+        }
+
+        // // debug
+        // if (node.parent == -1) {
+        //     for (auto probability : probabilities) std::cout << probability << " ";
+        //     std::cout << std::endl;
+        // }
     } else {
         int children_count = node.children[1] - node.children[0];
         for (int i = 0; i < children_count; i++)

@@ -46,7 +46,7 @@ void Algorithm::run_batch() {
     computation_graph->run_batch();
 }
 
-Eigen::VectorXf Algorithm::value(int rate) {
+Eigen::VectorXf Algorithm::value(int rate) const {
     return computation_graph->value(rate);
 }
 

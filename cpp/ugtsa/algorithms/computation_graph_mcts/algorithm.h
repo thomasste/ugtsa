@@ -18,7 +18,7 @@ public:
     Algorithm(games::game::GameState *game_state, int worker_count, int grow_factor, std::vector<int> removed_root_moves,
               computation_graphs::computation_graph::ComputationGraph *computation_graph, int empty_statistic, int move_rate, int game_state_as_update, int updated_statistic, int updated_update);
 
-    Eigen::VectorXf value(int rate);
+    Eigen::VectorXf value(int rate) const;
 
 private:
     int empty_statistic(games::game::GameState *game_state);

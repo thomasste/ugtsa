@@ -11,7 +11,7 @@ int main(int argc, char* argv[]) {
     srand(std::atoi(argv[1]));
 
     auto gs = games::omringa::GameState();
-    gs.move_to_random_state();
+    // gs.move_to_random_state();
 
     std::cout << gs << std::endl;
     std::cout << gs.random_playout_payoff() << std::endl;
