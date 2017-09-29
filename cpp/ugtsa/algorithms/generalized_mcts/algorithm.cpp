@@ -6,8 +6,8 @@
 namespace algorithms {
 namespace generalized_mcts {
 
-Algorithm::Algorithm(games::game::GameState *game_state, int worker_count, int grow_factor, std::vector<int> removed_root_moves)
-    : algorithms::algorithm::Algorithm(game_state), grow_factor(grow_factor), removed_root_moves(removed_root_moves), generator(rand()) {
+Algorithm::Algorithm(games::game::GameState *game_state, int worker_count, int grow_factor, float move_choice_factor, std::vector<int> removed_root_moves)
+    : algorithms::algorithm::Algorithm(game_state), grow_factor(grow_factor), move_choice_factor(move_choice_factor), removed_root_moves(removed_root_moves), generator(rand()) {
     for (int i = 0; i < worker_count; i++) {
         workers.push_back({0, Direction::DOWN, std::unique_ptr<games::game::GameState>(game_state->copy()), -1});
     }
@@ -201,7 +201,6 @@ void Algorithm::down_move_case(std::vector<int> &group) {
             probabilities.push_back(v(game_state->player) / v.sum());
         }
 
-        // TODO: remove
         if (node.parent == -1) {
             for (auto it = removed_root_moves.begin(); it != removed_root_moves.end(); it++) {
                 probabilities[*it] = 0.;
@@ -214,15 +213,14 @@ void Algorithm::down_move_case(std::vector<int> &group) {
             for (auto &probability : probabilities) sum += probability;
             for (auto &probability : probabilities) probability /= sum;
         }
-
-        // max
+        // min
         float min = 1.;
         {
             for (auto probability : probabilities) if (probability < min) min = probability;
         }
         // exp
         {
-            for (auto &probability : probabilities) probability = std::exp(80. * (probability - min));
+            for (auto &probability : probabilities) probability = std::exp(move_choice_factor * (probability - min));
         }
         // scale to 0..1
         {

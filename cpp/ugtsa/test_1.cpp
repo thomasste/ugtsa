@@ -11,7 +11,7 @@ int main(int argc, char* argv[]) {
     srand(std::atoi(argv[1]));
 
     auto gs = games::omringa::GameState();
-    // gs.move_to_random_state();
+    gs.move_to_random_state();
 
     std::cout << gs << std::endl;
     std::cout << gs.random_playout_payoff() << std::endl;
@@ -24,7 +24,7 @@ int main(int argc, char* argv[]) {
         if (gs.player == -1) {
             gs.apply_move(std::uniform_int_distribution<int>(0, gs.move_count() - 1)(generator));
         } else {
-            auto a = algorithms::ucb_mcts::Algorithm(&gs, 10, 5, std::vector<int>(), std::sqrt(2.));
+            auto a = algorithms::ucb_mcts::Algorithm(&gs, 10, 5, 80., {}, std::sqrt(2.));
             for (int i = 0; i < 500000; i++) {
                 a.improve();
             }

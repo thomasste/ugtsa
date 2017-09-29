@@ -266,7 +266,7 @@ void ComputationGraph::accumulate_model_gradients(int first_node, std::vector<in
 
     std::vector<Batch> batches(this->batches);
 
-    while (batches.size() > 1 and first_node < batches.back().nodes_end) {
+    while (batches.size() > 1 && first_node < batches.back().nodes_end) {
         std::vector<std::vector<int>> transformations_node_indices;
 
         for (int transformation_index = 0; transformation_index < transformations.size(); transformation_index++) {
@@ -408,9 +408,11 @@ void ComputationGraph::accumulate_model_gradients(int first_node, std::vector<in
                         auto output_view = output.matrix<float>();
                         int output_view_iterator = 0;
                         for (int partial_input_node_index : node_input) {
-                            auto &gradient = gradients[partial_input_node_index - first_node];
-                            for (auto &x : gradient) {
-                                (*((float*)&x)) += output_view(i, output_view_iterator++);
+                            if (partial_input_node_index - first_node >= 0) {
+                                auto &gradient = gradients[partial_input_node_index - first_node];
+                                for (auto &x : gradient) {
+                                    (*((float*)&x)) += output_view(i, output_view_iterator++);
+                                }
                             }
                         }
                     }

@@ -14,7 +14,7 @@ class Algorithm : public algorithms::generalized_mcts::Algorithm {
     float exploration_factor;
 
 public:
-    Algorithm(games::game::GameState *game_state, int worker_count, int grow_factor, std::vector<int> removed_root_moves, float exploration_factor);
+    Algorithm(games::game::GameState *game_state, int worker_count, int grow_factor, float move_choice_factor, std::vector<int> removed_root_moves, float exploration_factor);
 
     Eigen::VectorXf value(int rate) const;
 

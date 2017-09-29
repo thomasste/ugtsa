@@ -3,9 +3,9 @@
 namespace algorithms {
 namespace computation_graph_mcts {
 
-Algorithm::Algorithm(games::game::GameState *game_state, int worker_count, int grow_factor, std::vector<int> removed_root_moves,
+Algorithm::Algorithm(games::game::GameState *game_state, int worker_count, int grow_factor, float move_choice_factor, std::vector<int> removed_root_moves,
                      computation_graphs::computation_graph::ComputationGraph *computation_graph, int empty_statistic, int move_rate, int game_state_as_update, int updated_statistic, int updated_update)
-    : algorithms::generalized_mcts::Algorithm(game_state, worker_count, grow_factor, removed_root_moves), computation_graph(computation_graph),
+    : algorithms::generalized_mcts::Algorithm(game_state, worker_count, grow_factor, move_choice_factor, removed_root_moves), computation_graph(computation_graph),
       empty_statistic_(empty_statistic), move_rate_(move_rate), game_state_as_update_(game_state_as_update), updated_statistic_(updated_statistic), updated_update_(updated_update) {}
 
 int Algorithm::empty_statistic(games::game::GameState *game_state) {

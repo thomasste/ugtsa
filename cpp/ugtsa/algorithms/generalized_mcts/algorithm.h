@@ -32,11 +32,12 @@ private:
     std::vector<Worker> workers;
     std::vector<Node> tree;
     int grow_factor;
+    float move_choice_factor;
     std::vector<int> removed_root_moves;
     std::default_random_engine generator;
 
 public:
-    Algorithm(games::game::GameState *game_state, int worker_count, int grow_factor, std::vector<int> removed_root_moves);
+    Algorithm(games::game::GameState *game_state, int worker_count, int grow_factor, float move_choice_factor, std::vector<int> removed_root_moves);
 
     void improve();
     std::vector<int> move_rates();

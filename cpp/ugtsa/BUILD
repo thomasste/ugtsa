@@ -43,6 +43,16 @@ cc_binary(
 )
 
 cc_binary(
+    name = "solution_2",
+    srcs = ["solution_2.cpp"],
+    deps = [
+        ":libugtsa",
+        "//tensorflow/core:tensorflow",
+        "//third_party/eigen3",
+    ]
+)
+
+cc_binary(
     name = "test_1",
     srcs = ["test_1.cpp"],
     deps = [

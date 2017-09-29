@@ -7,14 +7,17 @@
 #include "ugtsa/games/omringa/game_state.h"
 
 int main(int argc, char **argv) {
-    // omringa__default__big_vertical_lstm_model_builder__10 5 500 500 1 1
-    // omringa__default__small_vertical_lstm_model_builder__10 5 500 500 1 1
+    srand(time(NULL));
+
+    // omringa__default__big_vertical_lstm_model_builder__10 5 80. 500 500 1 1
+    // omringa__default__small_vertical_lstm_model_builder__10 5 80. 500 500 1 1
     std::string graph_name = argv[1];
     int grow_factor = std::atoi(argv[2]);
-    int ucb_strength = std::atoi(argv[3]);
-    int ugtsa_strength = std::atoi(argv[4]);
-    int number_of_iterations = std::atoi(argv[5]);
-    int store_model_each = std::atoi(argv[6]);
+    float move_choice_factor = std::atof(argv[3]);
+    int ucb_strength = std::atoi(argv[4]);
+    int ugtsa_strength = std::atoi(argv[5]);
+    int number_of_iterations = std::atoi(argv[6]);
+    int store_model_each = std::atoi(argv[7]);
 
     // create session
     tensorflow::Session* session;
@@ -40,14 +43,14 @@ int main(int argc, char **argv) {
 
         // create ucb algorithm
         auto ucb_algorithm = algorithms::ucb_mcts::Algorithm(
-            ucb_game_state.get(), worker_count, grow_factor, {}, std::sqrt(2.));
+            ucb_game_state.get(), worker_count, grow_factor, move_choice_factor, {}, std::sqrt(2.));
 
         // create ugtsa algorithm
         auto computation_graph = computation_graphs::basic_computation_graph::ComputationGraph(
             session, "training:0", true);
         auto transformations = common::model_helpers::create_transformations(session, &computation_graph);
         auto ugtsa_algorithm = algorithms::computation_graph_mcts::Algorithm(
-            ugtsa_game_state.get(), worker_count, grow_factor, {}, &computation_graph,
+            ugtsa_game_state.get(), worker_count, grow_factor, move_choice_factor, {}, &computation_graph,
             transformations[0], transformations[1], transformations[2], transformations[3], transformations[4]);
 
         for (int i = 0; i < ucb_strength; i++) {

@@ -65,10 +65,11 @@ class ComputationGraph : public computation_graphs::computation_graph::Computati
 
     std::default_random_engine generator;
     std::vector<Transformation> transformations;
-    std::vector<Node> nodes;
     std::vector<Batch> batches;
 
 public:
+    std::vector<Node> nodes;
+
     ComputationGraph(tensorflow::Session* session, std::string training_name, bool training);
 
     int transformation(
