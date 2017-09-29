@@ -121,6 +121,34 @@ config = {
                                     cost_function_regularization_factor=0.001),
                                 updated_update_lstm_state_sizes=[
                                     50, 50, 50]),
+                        '29092017_1':
+                            VerticalLSTMModelBuilder(
+                                model_builder=BasicModelBuilder(
+                                    player_count=2,
+                                    worker_count=None,
+                                    statistic_size=150,
+                                    update_size=150,
+                                    game_state_board_shape=[7, 7],
+                                    game_state_statistic_size=2,
+                                    update_statistic_size=2,
+                                    seed_size=30,
+                                    empty_statistic_filter_shapes=[
+                                        (2, 2, 16), (2, 2, 32)],
+                                    empty_statistic_window_shapes=[
+                                        (1, 2, 2, 1), (1, 2, 2, 1)],
+                                    empty_statistic_hidden_output_sizes=[
+                                        150, 150, 150],
+                                    move_rate_hidden_output_sizes=[
+                                        150, 150, 150],
+                                    game_state_as_update_hidden_output_sizes=[
+                                        150, 150, 150],
+                                    updated_statistic_lstm_state_sizes=[
+                                        25, 25, 25],
+                                    updated_update_hidden_output_sizes=None,
+                                    cost_function_ucb_half_life=14400, # 28800
+                                    cost_function_regularization_factor=0.001),
+                                updated_update_lstm_state_sizes=[
+                                    25, 25, 25]),
                     },
                 },
             },
